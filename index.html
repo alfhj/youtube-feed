@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latest YouTube Videos</title>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --sidebar-bg: #212121;
+            --text-primary: #f1f1f1;
+            --text-secondary: #aaaaaa;
+            --accent: #3ea6ff;
+            --border: #3f3f3f;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Roboto", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        /* Form Elements */
+        label {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        button {
+            background-color: var(--text-primary);
+            color: var(--bg-color);
+            border: none;
+            padding: 10px 15px;
+            border-radius: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #d1d1d1;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #load-more {
+            display: none;
+            margin: 20px auto;
+            width: 200px;
+            background-color: var(--sidebar-bg);
+            color: var(--accent);
+            border: 1px solid var(--border);
+        }
+
+        #load-more:hover {
+            background-color: #3d3d3d;
+        }
+
+        /* Video List Styles */
+        .video-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .video-item {
+            display: flex;
+            gap: 16px;
+            color: inherit;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .video-item:hover:not(.playing) {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Player State Styles */
+        .video-item.playing {
+            display: block;
+            position: relative;
+            width: 100%;
+            cursor: default;
+            background-color: transparent;
+        }
+
+        .video-item.playing iframe {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: background-color 0.2s, transform 0.2s;
+            padding: 0;
+        }
+
+        .close-btn:hover {
+            background-color: #ff4e45;
+            transform: scale(1.1);
+        }
+
+        .thumbnail-wrapper {
+            position: relative;
+            width: 360px;
+            height: 202px;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+
+        .thumbnail {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            object-fit: cover;
+            background-color: #2c2c2c;
+        }
+
+        .video-duration {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 3px 4px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+        }
+
+        .video-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-top: 4px;
+            pointer-events: none;
+        }
+
+        .video-title {
+            font-size: 18px;
+            font-weight: 400;
+            margin: 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Channel Info container */
+        .channel-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .channel-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .channel-name {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Metadata */
+        .meta-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .video-meta {
+            font-size: 14px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .upload-timestamp {
+            font-size: 13px;
+            color: #777777;
+        }
+
+        .error-msg {
+            color: #ff4e45;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        #loading-indicator {
+            display: none;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <h2>Settings</h2>
+        <div>
+            <label for="api-key">YouTube API Key</label>
+            <input type="password" id="api-key" placeholder="AIzaSy...">
+        </div>
+        <div>
+            <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
+            <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
+        </div>
+        <button id="fetch-btn">Fetch Latest Videos</button>
+        <div id="error-container" class="error-msg"></div>
+    </div>
+
+    <div class="main-content">
+        <div id="loading-indicator">Fetching videos...</div>
+        <div class="video-list" id="video-list"></div>
+        <button id="load-more">Load More</button>
+    </div>
+
+    <script>
+        // DOM Elements
+        const apiKeyInput = document.getElementById('api-key');
+        const channelListInput = document.getElementById('channel-list');
+        const fetchBtn = document.getElementById('fetch-btn');
+        const loadMoreBtn = document.getElementById('load-more');
+        const videoListEl = document.getElementById('video-list');
+        const errorContainer = document.getElementById('error-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // State
+        let allVideos = [];
+        let channelIcons = {};
+        let displayIndex = 0;
+        const BATCH_SIZE = 20;
+
+        // Player State
+        let activeVideoNode = null;
+        let activeVideoHTML = "";
+
+        // Load saved data on startup
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedApiKey = localStorage.getItem('ytApiKey');
+            const savedChannels = localStorage.getItem('ytChannels');
+            if (savedApiKey) apiKeyInput.value = savedApiKey;
+            if (savedChannels) channelListInput.value = savedChannels;
+
+            // Add this line to auto-fetch if data exists
+            if (savedApiKey && savedChannels) fetchAllVideos();
+        });
+
+        // Event Listeners
+        fetchBtn.addEventListener('click', fetchAllVideos);
+        loadMoreBtn.addEventListener('click', renderVideoBatch);
+        apiKeyInput.addEventListener('input', () => localStorage.setItem('ytApiKey', apiKeyInput.value));
+        channelListInput.addEventListener('input', () => localStorage.setItem('ytChannels', channelListInput.value));
+
+        // Global function to close the currently playing video
+        window.closeActiveVideo = function (event) {
+            if (event) event.stopPropagation(); // Stop the click from bubbling down to the video container
+
+            if (activeVideoNode) {
+                // Restore the original HTML and remove the playing state
+                activeVideoNode.innerHTML = activeVideoHTML;
+                activeVideoNode.classList.remove('playing');
+
+                // Clear state
+                activeVideoNode = null;
+                activeVideoHTML = "";
+            }
+        };
+
+        async function fetchAllVideos() {
+            const apiKey = apiKeyInput.value.trim();
+            const channelInputText = channelListInput.value.trim();
+
+            errorContainer.innerText = '';
+
+            // Clean up player state if fetching new list
+            closeActiveVideo();
+
+            if (!apiKey) {
+                errorContainer.innerText = 'Please enter an API Key.';
+                return;
+            }
+            if (!channelInputText) {
+                errorContainer.innerText = 'Please enter at least one channel.';
+                return;
+            }
+
+            const channels = channelInputText.split(/[\n,]+/).map(c => c.trim()).filter(c => c);
+
+            allVideos = [];
+            channelIcons = {};
+            displayIndex = 0;
+            videoListEl.innerHTML = '';
+            loadMoreBtn.style.display = 'none';
+            fetchBtn.disabled = true;
+            loadingIndicator.style.display = 'block';
+
+            try {
+                let videoIdsToFetch = [];
+
+                for (const identifier of channels) {
+                    let uploadsPlaylistId = null;
+                    let channelId = null;
+
+                    let queryUrl = identifier.startsWith('@')
+                        ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&forHandle=${identifier}&key=${apiKey}`
+                        : `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${identifier}&key=${apiKey}`;
+
+                    const res = await fetch(queryUrl);
+                    const data = await res.json();
+
+                    if (data.items && data.items.length > 0) {
+                        const channelData = data.items[0];
+                        uploadsPlaylistId = channelData.contentDetails.relatedPlaylists.uploads;
+                        channelId = channelData.id;
+                        channelIcons[channelId] = channelData.snippet.thumbnails.default.url;
+                    }
+
+                    if (!uploadsPlaylistId) {
+                        console.warn(`Could not resolve playlist for: ${identifier}`);
+                        continue;
+                    }
+
+                    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=15&key=${apiKey}`);
+                    const plData = await plRes.json();
+
+                    if (plData.items) {
+                        plData.items.forEach(item => {
+                            videoIdsToFetch.push(item.snippet.resourceId.videoId);
+                        });
+                    }
+                }
+
+                if (videoIdsToFetch.length === 0) {
+                    throw new Error("No videos found or invalid channel IDs.");
+                }
+
+                for (let i = 0; i < videoIdsToFetch.length; i += 50) {
+                    const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
+                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batchIds}&key=${apiKey}`);
+                    const statData = await statRes.json();
+
+                    if (statData.items) {
+                        allVideos.push(...statData.items);
+                    }
+                }
+
+                allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
+                renderVideoBatch();
+
+            } catch (error) {
+                console.error(error);
+                errorContainer.innerText = error.message || 'An error occurred while fetching videos.';
+            } finally {
+                fetchBtn.disabled = false;
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        function renderVideoBatch() {
+            const batch = allVideos.slice(displayIndex, displayIndex + BATCH_SIZE);
+
+            batch.forEach(video => {
+                const el = document.createElement('div');
+                el.className = 'video-item';
+                el.dataset.id = video.id; // Store video ID for the embed
+
+                const thumbUrl = video.snippet.thumbnails.maxres ? video.snippet.thumbnails.maxres.url : video.snippet.thumbnails.medium.url;
+                const iconUrl = channelIcons[video.snippet.channelId] || '';
+                const publishDate = new Date(video.snippet.publishedAt);
+                const exactTimestamp = publishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+                el.innerHTML = `
+                    <div class="thumbnail-wrapper">
+                        <img class="thumbnail" src="${thumbUrl}" alt="Thumbnail">
+                        <span class="video-duration">${formatDuration(video.contentDetails.duration)}</span>
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">${video.snippet.title}</h3>
+                        
+                        <div class="channel-info">
+                            ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ''}
+                            <div class="channel-name">${video.snippet.channelTitle}</div>
+                        </div>
+
+                        <div class="meta-container">
+                            <div class="video-meta">
+                                <span>${formatViews(video.statistics.viewCount)}</span>
+                                <span>•</span>
+                                <span>${timeSince(publishDate)}</span>
+                            </div>
+                            <div class="upload-timestamp">${exactTimestamp}</div>
+                        </div>
+                    </div>
+                `;
+
+                // Add click event to open the video
+                el.addEventListener('click', function () {
+                    // If this exact video is already playing, do nothing
+                    if (activeVideoNode === this) return;
+
+                    // Close any currently playing video
+                    closeActiveVideo();
+
+                    // Save the state of the newly clicked video
+                    activeVideoNode = this;
+                    activeVideoHTML = this.innerHTML;
+
+                    const videoId = this.dataset.id;
+
+                    // Switch to playing state and inject the iframe
+                    this.classList.add('playing');
+                    this.innerHTML = `
+                        <button class="close-btn" onclick="closeActiveVideo(event)">✕</button>
+                        <iframe 
+                            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+                            title="YouTube video player"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            allowfullscreen>
+                        </iframe>
+                    `;
+
+                    // Smoothly scroll the video to the top of the container
+                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+
+                videoListEl.appendChild(el);
+            });
+
+            displayIndex += BATCH_SIZE;
+
+            if (displayIndex < allVideos.length) {
+                loadMoreBtn.style.display = 'block';
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
+        }
+
+        // Utility: Format Views
+        function formatViews(views) {
+            if (!views) return '0 views';
+            const num = parseInt(views);
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M views';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K views';
+            return num.toLocaleString() + ' views';
+        }
+
+        // Utility: Format Time Ago
+        function timeSince(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " years ago";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " months ago";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " days ago";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " hours ago";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            return Math.floor(seconds) + " seconds ago";
+        }
+
+        // Utility: Format YouTube ISO 8601 Duration
+        function formatDuration(duration) {
+            const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+            if (!match) return '0:00';
+
+            const hours = (parseInt(match[1]) || 0);
+            const minutes = (parseInt(match[2]) || 0);
+            const seconds = (parseInt(match[3]) || 0);
+
+            let result = '';
+            if (hours > 0) {
+                result += hours + ':';
+                result += minutes.toString().padStart(2, '0') + ':';
+            } else {
+                result += minutes + ':';
+            }
+            result += seconds.toString().padStart(2, '0');
+
+            return result;
+        }
+    </script>
+</body>
+
+</html>
