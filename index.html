@@ -102,6 +102,13 @@
             background-color: #3d3d3d;
         }
 
+        .video-count {
+            color: #aaaaaa;
+            font-size: 14px;
+            margin-top: 8px;
+            text-align: center;
+        }
+
         /* Video List Styles */
         .video-list {
             display: flex;
@@ -281,6 +288,11 @@
             text-align: center;
             margin-top: 20px;
         }
+
+        /* Dynamic Shorts Toggling */
+        .video-list.hide-shorts .video-item.is-short {
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -296,6 +308,10 @@
             <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
             <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
         </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="include-shorts" style="width: auto;">
+            <label for="include-shorts" style="margin: 0; cursor: pointer;">Include Shorts</label>
+        </div>
         <button id="fetch-btn">Fetch Latest Videos</button>
         <div id="error-container" class="error-msg"></div>
     </div>
@@ -304,17 +320,20 @@
         <div id="loading-indicator">Fetching videos...</div>
         <div class="video-list" id="video-list"></div>
         <button id="load-more">Load More</button>
+        <div id="video-count-text" class="video-count"></div>
     </div>
 
     <script>
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key');
         const channelListInput = document.getElementById('channel-list');
+        const includeShortsCheckbox = document.getElementById('include-shorts');
         const fetchBtn = document.getElementById('fetch-btn');
         const loadMoreBtn = document.getElementById('load-more');
         const videoListEl = document.getElementById('video-list');
         const errorContainer = document.getElementById('error-container');
         const loadingIndicator = document.getElementById('loading-indicator');
+        const videoCountText = document.getElementById('video-count-text');
 
         // New State Variables
         let activeChannels = []; // Stores the API Page Tokens for infinite loading
@@ -326,18 +345,24 @@
         document.addEventListener('DOMContentLoaded', () => {
             const savedApiKey = localStorage.getItem('ytApiKey');
             const savedChannels = localStorage.getItem('ytChannels');
+            const savedShortsToggle = localStorage.getItem('ytIncludeShorts');
+
             if (savedApiKey) apiKeyInput.value = savedApiKey;
             if (savedChannels) channelListInput.value = savedChannels;
-
-            // Auto-fetch if data exists
-            if (savedApiKey && savedChannels) fetchAllVideos();
+            if (savedShortsToggle === 'true') includeShortsCheckbox.checked = true;
+            if (savedApiKey && savedChannels) fetchAllVideos(); // Auto-fetch if data exists
+            toggleShortsDisplay();
         });
 
         // Event Listeners
         fetchBtn.addEventListener('click', fetchAllVideos);
-        loadMoreBtn.addEventListener('click', fetchNextBatch); // Triggers API instead of memory
+        loadMoreBtn.addEventListener('click', fetchNextBatch);
         apiKeyInput.addEventListener('input', () => localStorage.setItem('ytApiKey', apiKeyInput.value));
         channelListInput.addEventListener('input', () => localStorage.setItem('ytChannels', channelListInput.value));
+        includeShortsCheckbox.addEventListener('change', () => {
+            localStorage.setItem('ytIncludeShorts', includeShortsCheckbox.checked);
+            toggleShortsDisplay();
+        });
 
         window.closeActiveVideo = function (event) {
             if (event) {
@@ -452,7 +477,7 @@
                 // Fetch statistics/durations for the batch
                 for (let i = 0; i < videoIdsToFetch.length; i += 50) {
                     const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
-                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batchIds}&key=${apiKey}`);
+                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`);
                     const statData = await statRes.json();
                     if (statData.items) newVideos.push(...statData.items);
                 }
@@ -483,6 +508,15 @@
                 el.href = `https://www.youtube.com/watch?v=${video.id}`;
                 el.className = 'video-item';
                 el.dataset.id = video.id;
+
+                // Tag the element if it's a Short
+                const embedWidth = parseInt(video.player?.embedWidth) || 16;
+                const embedHeight = parseInt(video.player?.embedHeight) || 9;
+                const isVertical = embedHeight >= embedWidth;
+                const isShortDuration = isShortVideo(video.contentDetails.duration);
+                if (isVertical && isShortDuration) {
+                    el.classList.add('is-short');
+                }
 
                 // Save the exact timestamp as a data attribute on the HTML element for sorting
                 const publishDate = new Date(video.snippet.publishedAt);
@@ -553,7 +587,40 @@
             const items = Array.from(videoListEl.children);
             items.sort((a, b) => parseInt(b.dataset.timestamp) - parseInt(a.dataset.timestamp));
             videoListEl.append(...items);
+            updateVideoCount();
         }
+
+        // Update the display instantly when toggled
+        function toggleShortsDisplay() {
+            if (includeShortsCheckbox.checked) {
+                videoListEl.classList.remove('hide-shorts');
+            } else {
+                videoListEl.classList.add('hide-shorts');
+            }
+            updateVideoCount();
+        }
+
+        // Update the "Showing X/Y videos" text
+        function updateVideoCount() {
+            const totalVideos = document.querySelectorAll('.video-item').length;
+
+            // If the list has the 'hide-shorts' class, count how many are hidden
+            const isHidingShorts = videoListEl.classList.contains('hide-shorts');
+            const hiddenShorts = isHidingShorts ? document.querySelectorAll('.video-item.is-short').length : 0;
+
+            const visibleVideos = totalVideos - hiddenShorts;
+
+            if (totalVideos > 0) {
+                videoCountText.innerText = `Showing ${visibleVideos}/${totalVideos} videos`;
+            } else {
+                videoCountText.innerText = '';
+            }
+        }
+
+        includeShortsCheckbox.addEventListener('change', () => {
+            localStorage.setItem('ytIncludeShorts', includeShortsCheckbox.checked);
+            toggleShortsDisplay();
+        });
 
         // Utility: Format Views
         function formatViews(views) {
@@ -596,6 +663,19 @@
             }
             result += seconds.toString().padStart(2, '0');
             return result;
+        }
+
+        // Utility: Check if a video is a Short (<= 61 seconds)
+        function isShortVideo(duration) {
+            const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+            if (!match) return false;
+
+            const hours = parseInt(match[1]) || 0;
+            const minutes = parseInt(match[2]) || 0;
+            const seconds = parseInt(match[3]) || 0;
+
+            const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+            return totalSeconds <= 61; // 61s accounts for YouTube's occasional 1-second rounding error
         }
     </script>
 </body>
