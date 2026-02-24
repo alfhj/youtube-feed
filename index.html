@@ -30,12 +30,10 @@
         .sidebar {
             width: 300px;
             background-color: var(--sidebar-bg);
-            padding: 20px;
             box-sizing: border-box;
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            gap: 15px;
         }
 
         .main-content {
@@ -293,27 +291,102 @@
         .video-list.hide-shorts .video-item.is-short {
             display: none !important;
         }
+
+        /* Mobile toggle button (hidden on desktop) */
+        .settings-toggle {
+            display: none;
+        }
+
+        /* Sidebar content is always visible on desktop */
+        .sidebar-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                overflow: auto;
+            }
+
+            .settings-toggle {
+                display: block;
+                width: 100%;
+                border-radius: 0;
+                padding: 12px 16px;
+                text-align: left;
+                font-size: 15px;
+                background-color: var(--sidebar-bg);
+                color: var(--text-primary);
+            }
+
+            .settings-toggle:hover {
+                background-color: var(--sidebar-bg);
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 0;
+                gap: 0;
+            }
+
+            .sidebar-content {
+                display: none;
+                flex-direction: column;
+                gap: 15px;
+                padding: 16px;
+            }
+
+            .sidebar-content.open {
+                display: flex;
+            }
+
+            .main-content {
+                padding: 12px;
+            }
+
+            .thumbnail-wrapper {
+                width: 100%;
+            }
+
+            .video-item:not(.playing):not(.expanding) {
+                flex-direction: column;
+            }
+
+            .video-title {
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
 
 <body>
 
     <div class="sidebar">
-        <h2>Settings</h2>
-        <div>
-            <label for="api-key">YouTube API Key</label>
-            <input type="password" id="api-key" placeholder="AIzaSy...">
+        <button type="button" class="settings-toggle" id="settings-toggle" aria-expanded="false" aria-controls="sidebar-content">⚙ Settings</button>
+        <div class="sidebar-content" id="sidebar-content">
+            <h2>Settings</h2>
+            <div>
+                <label for="api-key">YouTube API Key</label>
+                <input type="password" id="api-key" placeholder="AIzaSy...">
+            </div>
+            <div>
+                <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
+                <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="include-shorts" style="width: auto;">
+                <label for="include-shorts" style="margin: 0; cursor: pointer;">Include Shorts</label>
+            </div>
+            <button id="fetch-btn">Fetch Latest Videos</button>
+            <div id="error-container" class="error-msg"></div>
         </div>
-        <div>
-            <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
-            <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="include-shorts" style="width: auto;">
-            <label for="include-shorts" style="margin: 0; cursor: pointer;">Include Shorts</label>
-        </div>
-        <button id="fetch-btn">Fetch Latest Videos</button>
-        <div id="error-container" class="error-msg"></div>
     </div>
 
     <div class="main-content">
@@ -334,6 +407,14 @@
         const errorContainer = document.getElementById('error-container');
         const loadingIndicator = document.getElementById('loading-indicator');
         const videoCountText = document.getElementById('video-count-text');
+        const settingsToggle = document.getElementById('settings-toggle');
+        const sidebarContent = document.getElementById('sidebar-content');
+
+        // Mobile settings toggle
+        settingsToggle.addEventListener('click', () => {
+            const isOpen = sidebarContent.classList.toggle('open');
+            settingsToggle.setAttribute('aria-expanded', isOpen);
+        });
 
         // New State Variables
         let activeChannels = []; // Stores the API Page Tokens for infinite loading
