@@ -118,6 +118,7 @@
             cursor: pointer;
             border-radius: 8px;
             transition: background-color 0.2s;
+            text-decoration: none;
         }
 
         .video-item:hover:not(.playing) {
@@ -332,7 +333,7 @@
             if (savedApiKey) apiKeyInput.value = savedApiKey;
             if (savedChannels) channelListInput.value = savedChannels;
 
-            // Add this line to auto-fetch if data exists
+            // Auto-fetch if data exists
             if (savedApiKey && savedChannels) fetchAllVideos();
         });
 
@@ -344,10 +345,13 @@
 
         // Global function to close the currently playing video
         window.closeActiveVideo = function (event) {
-            if (event) event.stopPropagation(); // Stop the click from bubbling down to the video container
+            if (event) {
+                event.stopPropagation(); // Stop the click from bubbling
+                event.preventDefault();  // Stop the <a> tag from opening the link
+            }
 
             if (activeVideoNode) {
-                // Restore the original HTML and remove the playing state
+                // Restore the original HTML and remove the playing/expanding state
                 activeVideoNode.innerHTML = activeVideoHTML;
                 activeVideoNode.classList.remove('playing', 'expanding');
 
@@ -451,7 +455,8 @@
             const batch = allVideos.slice(displayIndex, displayIndex + BATCH_SIZE);
 
             batch.forEach(video => {
-                const el = document.createElement('div');
+                const el = document.createElement('a');
+                el.href = `https://www.youtube.com/watch?v=${video.id}`;
                 el.className = 'video-item';
                 el.dataset.id = video.id; // Store video ID for the embed
 
@@ -484,9 +489,16 @@
                     </div>
                 `;
 
-                // Add click event to open the video
+                // Handle the click natively
                 el.addEventListener('click', function (event) {
-                    event.preventDefault(); // Stop ghost navigations
+                    // If it's a middle-click, Ctrl-click, or anything other than a basic left-click, 
+                    // do nothing and let the browser open the new tab normally!
+                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) {
+                        return;
+                    }
+
+                    // For standard left-clicks, STOP the link from opening in this tab
+                    event.preventDefault();
 
                     // If this exact video is already playing, do nothing
                     if (activeVideoNode === this) return;
@@ -503,19 +515,13 @@
                     // 1. Start the expansion animation
                     this.classList.add('expanding');
 
-                    // Smoothly scroll the video to the center of the screen while it animates
-                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
                     // 2. Wait for the CSS transition to finish (400ms), then load the iframe
                     setTimeout(() => {
-                        // Safety check: Make sure the user didn't click "close" during the animation
                         if (activeVideoNode !== this) return;
 
-                        // Swap from 'expanding' state to 'playing' state
                         this.classList.remove('expanding');
                         this.classList.add('playing');
 
-                        // Inject the YouTube iframe
                         this.innerHTML = `
                             <button class="close-btn" onclick="closeActiveVideo(event)">✕</button>
                             <iframe 
