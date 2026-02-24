@@ -316,13 +316,9 @@
         const errorContainer = document.getElementById('error-container');
         const loadingIndicator = document.getElementById('loading-indicator');
 
-        // State
-        let allVideos = [];
+        // New State Variables
+        let activeChannels = []; // Stores the API Page Tokens for infinite loading
         let channelIcons = {};
-        let displayIndex = 0;
-        const BATCH_SIZE = 20;
-
-        // Player State
         let activeVideoNode = null;
         let activeVideoHTML = "";
 
@@ -339,63 +335,49 @@
 
         // Event Listeners
         fetchBtn.addEventListener('click', fetchAllVideos);
-        loadMoreBtn.addEventListener('click', renderVideoBatch);
+        loadMoreBtn.addEventListener('click', fetchNextBatch); // Triggers API instead of memory
         apiKeyInput.addEventListener('input', () => localStorage.setItem('ytApiKey', apiKeyInput.value));
         channelListInput.addEventListener('input', () => localStorage.setItem('ytChannels', channelListInput.value));
 
-        // Global function to close the currently playing video
         window.closeActiveVideo = function (event) {
             if (event) {
-                event.stopPropagation(); // Stop the click from bubbling
-                event.preventDefault();  // Stop the <a> tag from opening the link
+                event.stopPropagation();
+                event.preventDefault();
             }
-
             if (activeVideoNode) {
-                // Restore the original HTML and remove the playing/expanding state
                 activeVideoNode.innerHTML = activeVideoHTML;
                 activeVideoNode.classList.remove('playing', 'expanding');
-
-                // Clear state
                 activeVideoNode = null;
                 activeVideoHTML = "";
             }
         };
 
+        // 1. INITIAL FETCH: Setup the channels and get the first page
         async function fetchAllVideos() {
             const apiKey = apiKeyInput.value.trim();
             const channelInputText = channelListInput.value.trim();
 
             errorContainer.innerText = '';
-
-            // Clean up player state if fetching new list
             closeActiveVideo();
 
-            if (!apiKey) {
-                errorContainer.innerText = 'Please enter an API Key.';
-                return;
-            }
-            if (!channelInputText) {
-                errorContainer.innerText = 'Please enter at least one channel.';
+            if (!apiKey || !channelInputText) {
+                errorContainer.innerText = 'Please enter an API Key and at least one channel.';
                 return;
             }
 
             const channels = channelInputText.split(/[\n,]+/).map(c => c.trim()).filter(c => c);
 
-            allVideos = [];
+            // Reset Everything
+            activeChannels = [];
             channelIcons = {};
-            displayIndex = 0;
             videoListEl.innerHTML = '';
             loadMoreBtn.style.display = 'none';
             fetchBtn.disabled = true;
             loadingIndicator.style.display = 'block';
 
             try {
-                let videoIdsToFetch = [];
-
+                // Find the "Uploads" playlist ID for every channel input
                 for (const identifier of channels) {
-                    let uploadsPlaylistId = null;
-                    let channelId = null;
-
                     let queryUrl = identifier.startsWith('@')
                         ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&forHandle=${identifier}&key=${apiKey}`
                         : `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${identifier}&key=${apiKey}`;
@@ -405,42 +387,22 @@
 
                     if (data.items && data.items.length > 0) {
                         const channelData = data.items[0];
-                        uploadsPlaylistId = channelData.contentDetails.relatedPlaylists.uploads;
-                        channelId = channelData.id;
-                        channelIcons[channelId] = channelData.snippet.thumbnails.default.url;
-                    }
+                        channelIcons[channelData.id] = channelData.snippet.thumbnails.default.url;
 
-                    if (!uploadsPlaylistId) {
-                        console.warn(`Could not resolve playlist for: ${identifier}`);
-                        continue;
-                    }
-
-                    const plRes = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=15&key=${apiKey}`);
-                    const plData = await plRes.json();
-
-                    if (plData.items) {
-                        plData.items.forEach(item => {
-                            videoIdsToFetch.push(item.snippet.resourceId.videoId);
+                        // Save the channel data with a blank starting page token
+                        activeChannels.push({
+                            playlistId: channelData.contentDetails.relatedPlaylists.uploads,
+                            channelId: channelData.id,
+                            nextPageToken: '',
+                            hasMore: true
                         });
                     }
                 }
 
-                if (videoIdsToFetch.length === 0) {
-                    throw new Error("No videos found or invalid channel IDs.");
-                }
+                if (activeChannels.length === 0) throw new Error("No valid channels found.");
 
-                for (let i = 0; i < videoIdsToFetch.length; i += 50) {
-                    const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
-                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batchIds}&key=${apiKey}`);
-                    const statData = await statRes.json();
-
-                    if (statData.items) {
-                        allVideos.push(...statData.items);
-                    }
-                }
-
-                allVideos.sort((a, b) => new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt));
-                renderVideoBatch();
+                // Trigger the first data load
+                await fetchNextBatch();
 
             } catch (error) {
                 console.error(error);
@@ -451,18 +413,83 @@
             }
         }
 
-        function renderVideoBatch() {
-            const batch = allVideos.slice(displayIndex, displayIndex + BATCH_SIZE);
+        // 2. PAGINATION: Go to YouTube and get the NEXT page of older videos
+        async function fetchNextBatch() {
+            const apiKey = apiKeyInput.value.trim();
 
-            batch.forEach(video => {
+            loadMoreBtn.innerText = 'Loading older videos...';
+            loadMoreBtn.disabled = true;
+            if (activeChannels.every(c => !c.nextPageToken)) loadingIndicator.style.display = 'block';
+
+            try {
+                let videoIdsToFetch = [];
+                let newVideos = [];
+
+                // Ask YouTube for the next 10 older videos from every active channel
+                for (const channel of activeChannels) {
+                    if (!channel.hasMore) continue;
+
+                    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${channel.playlistId}&maxResults=10&key=${apiKey}`;
+                    if (channel.nextPageToken) url += `&pageToken=${channel.nextPageToken}`;
+
+                    const plRes = await fetch(url);
+                    const plData = await plRes.json();
+
+                    if (plData.items) {
+                        plData.items.forEach(item => videoIdsToFetch.push(item.snippet.resourceId.videoId));
+                    }
+
+                    // Save the new page token to use for the NEXT time we click Load More
+                    if (plData.nextPageToken) {
+                        channel.nextPageToken = plData.nextPageToken;
+                    } else {
+                        channel.hasMore = false; // This channel has reached the end of its history
+                    }
+                }
+
+                if (videoIdsToFetch.length === 0) return;
+
+                // Fetch statistics/durations for the batch
+                for (let i = 0; i < videoIdsToFetch.length; i += 50) {
+                    const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
+                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batchIds}&key=${apiKey}`);
+                    const statData = await statRes.json();
+                    if (statData.items) newVideos.push(...statData.items);
+                }
+
+                renderAndSortVideos(newVideos);
+
+                // Show the Load More button if at least one channel still has history left
+                if (activeChannels.some(c => c.hasMore)) {
+                    loadMoreBtn.style.display = 'block';
+                    loadMoreBtn.innerText = 'Load More';
+                } else {
+                    loadMoreBtn.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error(error);
+                errorContainer.innerText = error.message;
+            } finally {
+                loadMoreBtn.disabled = false;
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        // 3. RENDER AND DOM SORTING: Merge new videos seamlessly into the timeline
+        function renderAndSortVideos(videos) {
+            videos.forEach(video => {
                 const el = document.createElement('a');
                 el.href = `https://www.youtube.com/watch?v=${video.id}`;
                 el.className = 'video-item';
-                el.dataset.id = video.id; // Store video ID for the embed
+                el.dataset.id = video.id;
+
+                // Save the exact timestamp as a data attribute on the HTML element for sorting
+                const publishDate = new Date(video.snippet.publishedAt);
+                el.dataset.timestamp = publishDate.getTime();
 
                 const thumbUrl = video.snippet.thumbnails.maxres ? video.snippet.thumbnails.maxres.url : video.snippet.thumbnails.medium.url;
                 const iconUrl = channelIcons[video.snippet.channelId] || '';
-                const publishDate = new Date(video.snippet.publishedAt);
                 const exactTimestamp = publishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
                 el.innerHTML = `
@@ -472,12 +499,10 @@
                     </div>
                     <div class="video-info">
                         <h3 class="video-title">${video.snippet.title}</h3>
-                        
                         <div class="channel-info">
                             ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ''}
                             <div class="channel-name">${video.snippet.channelTitle}</div>
                         </div>
-
                         <div class="meta-container">
                             <div class="video-meta">
                                 <span>${formatViews(video.statistics.viewCount)}</span>
@@ -491,34 +516,20 @@
 
                 // Handle the click natively
                 el.addEventListener('click', function (event) {
-                    // If it's a middle-click, Ctrl-click, or anything other than a basic left-click, 
-                    // do nothing and let the browser open the new tab normally!
-                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) {
-                        return;
-                    }
+                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
 
-                    // For standard left-clicks, STOP the link from opening in this tab
                     event.preventDefault();
-
-                    // If this exact video is already playing, do nothing
                     if (activeVideoNode === this) return;
-
-                    // Close any currently playing video
                     closeActiveVideo();
 
-                    // Save the state of the newly clicked video
                     activeVideoNode = this;
                     activeVideoHTML = this.innerHTML;
-
                     const videoId = this.dataset.id;
 
-                    // 1. Start the expansion animation
                     this.classList.add('expanding');
 
-                    // 2. Wait for the CSS transition to finish (400ms), then load the iframe
                     setTimeout(() => {
                         if (activeVideoNode !== this) return;
-
                         this.classList.remove('expanding');
                         this.classList.add('playing');
 
@@ -538,13 +549,10 @@
                 videoListEl.appendChild(el);
             });
 
-            displayIndex += BATCH_SIZE;
-
-            if (displayIndex < allVideos.length) {
-                loadMoreBtn.style.display = 'block';
-            } else {
-                loadMoreBtn.style.display = 'none';
-            }
+            // Re-sort the physical HTML elements so the newest videos are always at the top
+            const items = Array.from(videoListEl.children);
+            items.sort((a, b) => parseInt(b.dataset.timestamp) - parseInt(a.dataset.timestamp));
+            videoListEl.append(...items);
         }
 
         // Utility: Format Views
@@ -576,11 +584,9 @@
         function formatDuration(duration) {
             const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
             if (!match) return '0:00';
-
             const hours = (parseInt(match[1]) || 0);
             const minutes = (parseInt(match[2]) || 0);
             const seconds = (parseInt(match[3]) || 0);
-
             let result = '';
             if (hours > 0) {
                 result += hours + ':';
@@ -589,7 +595,6 @@
                 result += minutes + ':';
             }
             result += seconds.toString().padStart(2, '0');
-
             return result;
         }
     </script>
