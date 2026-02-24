@@ -132,6 +132,20 @@
             background-color: transparent;
         }
 
+        .video-item.expanding {
+            display: block;
+            cursor: default;
+            background-color: transparent;
+        }
+
+        .video-item.expanding .thumbnail-wrapper {
+            width: 100%;
+        }
+
+        .video-item.expanding .video-info {
+            display: none;
+        }
+
         .video-item.playing iframe {
             width: 100%;
             aspect-ratio: 16 / 9;
@@ -168,9 +182,10 @@
         .thumbnail-wrapper {
             position: relative;
             width: 360px;
-            height: 202px;
+            aspect-ratio: 16 / 9;
             flex-shrink: 0;
             pointer-events: none;
+            transition: width 0.4s ease-in-out;
         }
 
         .thumbnail {
@@ -333,7 +348,7 @@
             if (activeVideoNode) {
                 // Restore the original HTML and remove the playing state
                 activeVideoNode.innerHTML = activeVideoHTML;
-                activeVideoNode.classList.remove('playing');
+                activeVideoNode.classList.remove('playing', 'expanding');
 
                 // Clear state
                 activeVideoNode = null;
@@ -469,7 +484,9 @@
                 `;
 
                 // Add click event to open the video
-                el.addEventListener('click', function () {
+                el.addEventListener('click', function (event) {
+                    event.preventDefault(); // Stop ghost navigations
+
                     // If this exact video is already playing, do nothing
                     if (activeVideoNode === this) return;
 
@@ -482,21 +499,33 @@
 
                     const videoId = this.dataset.id;
 
-                    // Switch to playing state and inject the iframe
-                    this.classList.add('playing');
-                    this.innerHTML = `
-                        <button class="close-btn" onclick="closeActiveVideo(event)">✕</button>
-                        <iframe 
-                            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
-                            title="YouTube video player"
-                            frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                            allowfullscreen>
-                        </iframe>
-                    `;
+                    // 1. Start the expansion animation
+                    this.classList.add('expanding');
 
-                    // Smoothly scroll the video to the top of the container
+                    // Smoothly scroll the video to the center of the screen while it animates
                     this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // 2. Wait for the CSS transition to finish (400ms), then load the iframe
+                    setTimeout(() => {
+                        // Safety check: Make sure the user didn't click "close" during the animation
+                        if (activeVideoNode !== this) return;
+
+                        // Swap from 'expanding' state to 'playing' state
+                        this.classList.remove('expanding');
+                        this.classList.add('playing');
+
+                        // Inject the YouTube iframe
+                        this.innerHTML = `
+                            <button class="close-btn" onclick="closeActiveVideo(event)">✕</button>
+                            <iframe 
+                                src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+                                title="YouTube video player"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allowfullscreen>
+                            </iframe>
+                        `;
+                    }, 400);
                 });
 
                 videoListEl.appendChild(el);
