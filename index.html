@@ -617,11 +617,6 @@
             }
         }
 
-        includeShortsCheckbox.addEventListener('change', () => {
-            localStorage.setItem('ytIncludeShorts', includeShortsCheckbox.checked);
-            toggleShortsDisplay();
-        });
-
         // Utility: Format Views
         function formatViews(views) {
             if (!views) return '0 views';
