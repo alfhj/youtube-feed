@@ -288,7 +288,6 @@
             margin-top: 20px;
         }
 
-
         /* Hide/show videos */
         .video-list.hide-shorts .video-item.is-short {
             display: none !important;
@@ -387,6 +386,7 @@
         const channelListInput = document.getElementById('channel-list');
         const hideShortsCheckbox = document.getElementById('hide-shorts');
         const hideWatchedCheckbox = document.getElementById('hide-watched');
+        const resetWatchedBtn = document.getElementById('reset-watched');
         const fetchBtn = document.getElementById('fetch-btn');
         const loadMoreBtn = document.getElementById('load-more');
         const videoListEl = document.getElementById('video-list');
@@ -394,7 +394,7 @@
         const loadingIndicator = document.getElementById('loading-indicator');
         const videoCountText = document.getElementById('video-count-text');
 
-        // New State Variables
+        // State Variables
         let activeChannels = []; // Stores the API Page Tokens for infinite loading
         let channelIcons = {};
         let activeVideoNode = null;
@@ -431,7 +431,7 @@
             updateFilters();
         });
 
-        document.getElementById('reset-watched').addEventListener('click', () => {
+        resetWatchedBtn.addEventListener('click', () => {
             watchedVideos = {};
             localStorage.removeItem('ytWatchedVideos');
             document.querySelectorAll('.video-item.is-watched').forEach(el => {
@@ -788,13 +788,15 @@
             return totalSeconds <= 61; // 61s accounts for YouTube's occasional 1-second rounding error
         }
 
-        // Mark a video as watched
+        // Mark a video as watched and update storage
         function markVideoAsWatched(videoId, element) {
-            watchedVideos[videoId] = true;
-            localStorage.setItem('ytWatchedVideos', JSON.stringify(watchedVideos));
-            if (element) {
-                element.classList.add('is-watched');
-                updateVideoCount();
+            if (!watchedVideos[videoId]) {
+                watchedVideos[videoId] = true;
+                localStorage.setItem('ytWatchedVideos', JSON.stringify(watchedVideos));
+                if (element) {
+                    element.classList.add('is-watched');
+                    updateVideoCount();
+                }
             }
         }
     </script>
