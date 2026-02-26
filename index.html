@@ -672,6 +672,14 @@
                                 allowfullscreen>
                             </iframe>
                         `;
+
+                        if (this.classList.contains('is-short') && window.innerWidth <= 768) {
+                            const iframe = this.querySelector('iframe');
+                            if (iframe) {
+                                const requestFS = iframe.requestFullscreen || iframe.webkitRequestFullscreen;
+                                if (requestFS) requestFS.call(iframe).catch(() => {});
+                            }
+                        }
                     }, 400);
                 });
 
