@@ -313,95 +313,28 @@
             white-space: nowrap;
         }
 
-        .segmented-control {
-            display: inline-flex;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            overflow: hidden;
-            background-color: #2b2b2b;
-        }
-
-        .segmented-control button {
-            background-color: transparent;
-            color: var(--text-secondary);
-            border: none;
-            padding: 6px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s, color 0.2s;
-            border-radius: 0;
-        }
-
-        .segmented-control button + button {
-            border-left: 1px solid var(--border);
-        }
-
-        .segmented-control button.active {
-            background-color: var(--accent);
-            color: #0b0b0b;
-        }
-
-        .segmented-control button:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
-        }
-
         .watched-filter {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .pill-toggle {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            cursor: pointer;
+        md-segmented-button-set {
+            --md-segmented-button-container-shape: 999px;
+            --md-segmented-button-container-color: #2b2b2b;
+            --md-segmented-button-unselected-label-text-color: var(--text-secondary);
+            --md-segmented-button-selected-label-text-color: #0b0b0b;
+            --md-segmented-button-selected-container-color: var(--accent);
+            --md-segmented-button-separator-color: var(--border);
         }
 
-        .pill-toggle input {
-            position: absolute;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .pill-toggle-ui {
-            width: 38px;
-            height: 20px;
-            border-radius: 999px;
-            background-color: #2b2b2b;
-            border: 1px solid var(--border);
-            position: relative;
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        .pill-toggle-ui::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 2px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background-color: #9a9a9a;
-            transform: translate(2px, -50%);
-            transition: transform 0.2s, background-color 0.2s;
-        }
-
-        .pill-toggle input:checked + .pill-toggle-ui {
-            background-color: var(--accent);
-            border-color: var(--border);
-        }
-
-        .pill-toggle input:checked + .pill-toggle-ui::after {
-            transform: translate(20px, -50%);
-            background-color: #0b0b0b;
-        }
-
-        .pill-toggle input:focus-visible + .pill-toggle-ui {
-            outline: 2px solid var(--accent);
-            outline-offset: 2px;
+        md-switch {
+            --md-switch-selected-track-color: var(--accent);
+            --md-switch-selected-handle-color: #0b0b0b;
+            --md-switch-unselected-track-color: #2b2b2b;
+            --md-switch-unselected-handle-color: #9a9a9a;
+            --md-switch-unselected-track-outline-color: var(--border);
+            --md-switch-selected-track-outline-color: var(--border);
         }
 
         #reset-watched {
@@ -452,6 +385,13 @@
             }
         }
     </style>
+        <script type="importmap">
+            {
+                "imports": {
+                    "@material/web/": "https://esm.run/@material/web/"
+                }
+            }
+        </script>
 </head>
 
 <body>
@@ -469,18 +409,15 @@
             </div>
             <div class="show-filter">
                 <span class="filter-label">Show:</span>
-                <div class="segmented-control" role="group" aria-label="Show videos">
-                    <button type="button" class="show-mode-btn" data-mode="all" aria-pressed="true">All</button>
-                    <button type="button" class="show-mode-btn" data-mode="shorts" aria-pressed="false">Shorts</button>
-                    <button type="button" class="show-mode-btn" data-mode="longs" aria-pressed="false">Long</button>
-                </div>
+                <md-segmented-button-set class="show-mode-set" single-select aria-label="Show videos">
+                    <md-segmented-button class="show-mode-btn" data-mode="all" label="All" selected></md-segmented-button>
+                    <md-segmented-button class="show-mode-btn" data-mode="shorts" label="Shorts"></md-segmented-button>
+                    <md-segmented-button class="show-mode-btn" data-mode="longs" label="Long"></md-segmented-button>
+                </md-segmented-button-set>
             </div>
             <div class="watched-filter">
                 <span class="filter-label">Hide Watched</span>
-                <label class="pill-toggle">
-                    <input type="checkbox" id="hide-watched" aria-label="Hide watched">
-                    <span class="pill-toggle-ui" aria-hidden="true"></span>
-                </label>
+                <md-switch id="hide-watched" aria-label="Hide watched"></md-switch>
                 <span id="reset-watched">reset</span>
             </div>
             <button id="fetch-btn">Fetch Latest Videos</button>
@@ -495,12 +432,16 @@
         <div id="video-count-text" class="video-count"></div>
     </div>
 
-    <script>
+    <script type="module">
+        import '@material/web/segmentedbutton/segmented-button-set.js';
+        import '@material/web/segmentedbutton/segmented-button.js';
+        import '@material/web/switch/switch.js';
+
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key');
         const channelListInput = document.getElementById('channel-list');
         const showModeButtons = Array.from(document.querySelectorAll('.show-mode-btn'));
-        const hideWatchedCheckbox = document.getElementById('hide-watched');
+        const hideWatchedSwitch = document.getElementById('hide-watched');
         const resetWatchedBtn = document.getElementById('reset-watched');
         const fetchBtn = document.getElementById('fetch-btn');
         const loadMoreBtn = document.getElementById('load-more');
@@ -528,7 +469,7 @@
             if (savedApiKey) apiKeyInput.value = savedApiKey;
             if (savedChannels) channelListInput.value = savedChannels;
             if (savedShowMode) showMode = savedShowMode;
-            if (savedWatchedToggle === 'true') hideWatchedCheckbox.checked = true;
+            if (savedWatchedToggle === 'true') hideWatchedSwitch.selected = true;
             if (savedApiKey && savedChannels) fetchAllVideos(); // Auto-fetch if data exists
             setShowMode(showMode);
         });
@@ -543,8 +484,8 @@
                 setShowMode(button.dataset.mode || 'all');
             });
         });
-        hideWatchedCheckbox.addEventListener('change', () => {
-            localStorage.setItem('ytHideWatched', hideWatchedCheckbox.checked);
+        hideWatchedSwitch.addEventListener('change', () => {
+            localStorage.setItem('ytHideWatched', hideWatchedSwitch.selected);
             updateFilters();
         });
 
@@ -564,7 +505,7 @@
             }
             if (activeVideoNode) {
                 // Mark as watched if hideWatched is enabled
-                if (hideWatchedCheckbox.checked && activeVideoId) {
+                if (hideWatchedSwitch.selected && activeVideoId) {
                     markVideoAsWatched(activeVideoId, activeVideoNode);
                 }
                 activeVideoNode.innerHTML = activeVideoHTML;
@@ -761,7 +702,7 @@
                 // Handle the click natively
                 el.addEventListener('click', function (event) {
                     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
-                    if (!hideWatchedCheckbox.checked) markVideoAsWatched(this.dataset.id, this);
+                    if (!hideWatchedSwitch.selected) markVideoAsWatched(this.dataset.id, this);
 
                     event.preventDefault();
                     if (activeVideoNode === this) return;
@@ -818,7 +759,7 @@
             } else if (showMode === 'longs') {
                 videoListEl.classList.add('show-longs-only');
             }
-            if (hideWatchedCheckbox.checked) {
+            if (hideWatchedSwitch.selected) {
                 videoListEl.classList.add('hide-watched');
             } else {
                 videoListEl.classList.remove('hide-watched');
@@ -831,8 +772,11 @@
             localStorage.setItem('ytShowMode', showMode);
             showModeButtons.forEach(button => {
                 const isActive = button.dataset.mode === showMode;
-                button.classList.toggle('active', isActive);
-                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                if (isActive) {
+                    button.setAttribute('selected', '');
+                } else {
+                    button.removeAttribute('selected');
+                }
             });
             updateFilters();
         }
@@ -846,7 +790,7 @@
                 const isWatched = item.classList.contains('is-watched');
                 if (showMode === 'shorts' && !isShort) return false;
                 if (showMode === 'longs' && isShort) return false;
-                if (hideWatchedCheckbox.checked && isWatched) return false;
+                if (hideWatchedSwitch.selected && isWatched) return false;
                 return true;
             }).length;
 
