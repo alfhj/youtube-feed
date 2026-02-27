@@ -293,7 +293,7 @@
             display: none !important;
         }
 
-        .video-list.hide-watched .video-item.is-watched {
+        .video-list.hide-watched .video-item.is-watched:not(.playing):not(.expanding) {
             display: none !important;
         }
 
@@ -395,7 +395,7 @@
         const videoCountText = document.getElementById('video-count-text');
 
         // State Variables
-        let activeChannels = []; // Stores the API Page Tokens for infinite loading
+        let activeChannels = []; // { playlistId, channelId, nextPageToken, hasMore, buffer: [] }
         let channelIcons = {};
         let activeVideoNode = null;
         let activeVideoHTML = "";
@@ -495,12 +495,12 @@
                         const channelData = data.items[0];
                         channelIcons[channelData.id] = channelData.snippet.thumbnails.default.url;
 
-                        // Save the channel data with a blank starting page token
                         activeChannels.push({
                             playlistId: channelData.contentDetails.relatedPlaylists.uploads,
                             channelId: channelData.id,
                             nextPageToken: '',
-                            hasMore: true
+                            hasMore: true,
+                            buffer: [] // Per-channel buffer of fetched but not yet displayed videos
                         });
                     }
                 }
@@ -519,59 +519,71 @@
             }
         }
 
-        // 2. PAGINATION: Go to YouTube and get the NEXT page of older videos
+        // 2. PAGINATION: Fetch from channels with low buffers, then display the next 10 videos
         async function fetchNextBatch() {
             const apiKey = apiKeyInput.value.trim();
+            const PAGE_SIZE = 10;
 
             loadMoreBtn.innerText = 'Loading older videos...';
             loadMoreBtn.disabled = true;
-            if (activeChannels.every(c => !c.nextPageToken)) loadingIndicator.style.display = 'block';
+            loadingIndicator.style.display = 'block';
 
             try {
+                // Fetch from channels whose buffer has fewer than PAGE_SIZE videos
+                const channelsNeedingFetch = activeChannels.filter(c => c.hasMore && c.buffer.length < PAGE_SIZE);
+
                 let videoIdsToFetch = [];
-                let newVideos = [];
+                const videoIdToChannel = {};
 
-                // Ask YouTube for the next 10 older videos from every active channel
-                for (const channel of activeChannels) {
-                    if (!channel.hasMore) continue;
-
-                    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${channel.playlistId}&maxResults=10&key=${apiKey}`;
+                for (const channel of channelsNeedingFetch) {
+                    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${channel.playlistId}&maxResults=${PAGE_SIZE}&key=${apiKey}`;
                     if (channel.nextPageToken) url += `&pageToken=${channel.nextPageToken}`;
 
                     const plRes = await fetch(url);
                     const plData = await plRes.json();
 
                     if (plData.items) {
-                        plData.items.forEach(item => videoIdsToFetch.push(item.snippet.resourceId.videoId));
+                        for (const item of plData.items) {
+                            const videoId = item.snippet.resourceId.videoId;
+                            videoIdsToFetch.push(videoId);
+                            videoIdToChannel[videoId] = channel;
+                        }
                     }
 
-                    // Save the new page token to use for the NEXT time we click Load More
-                    if (plData.nextPageToken) {
-                        channel.nextPageToken = plData.nextPageToken;
-                    } else {
-                        channel.hasMore = false; // This channel has reached the end of its history
+                    channel.nextPageToken = plData.nextPageToken || '';
+                    if (!plData.nextPageToken) channel.hasMore = false;
+                }
+
+                // Fetch full video details in batches of 50
+                if (videoIdsToFetch.length > 0) {
+                    for (let i = 0; i < videoIdsToFetch.length; i += 50) {
+                        const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
+                        const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`);
+                        const statData = await statRes.json();
+                        if (statData.items) {
+                            for (const video of statData.items) {
+                                const channel = videoIdToChannel[video.id];
+                                if (channel) channel.buffer.push(video);
+                            }
+                        }
+                    }
+
+                    // Sort each channel's buffer by date descending
+                    for (const channel of activeChannels) {
+                        channel.buffer.sort((a, b) =>
+                            new Date(b.snippet.publishedAt) - new Date(a.snippet.publishedAt)
+                        );
                     }
                 }
 
-                if (videoIdsToFetch.length === 0) return;
+                // Drain PAGE_SIZE videos from the combined sorted buffers
+                const toRender = drainTopVideos(PAGE_SIZE);
+                if (toRender.length > 0) renderVideos(toRender);
 
-                // Fetch statistics/durations for the batch
-                for (let i = 0; i < videoIdsToFetch.length; i += 50) {
-                    const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
-                    const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`);
-                    const statData = await statRes.json();
-                    if (statData.items) newVideos.push(...statData.items);
-                }
-
-                renderAndSortVideos(newVideos);
-
-                // Show the Load More button if at least one channel still has history left
-                if (activeChannels.some(c => c.hasMore)) {
-                    loadMoreBtn.style.display = 'block';
-                    loadMoreBtn.innerText = 'Load More';
-                } else {
-                    loadMoreBtn.style.display = 'none';
-                }
+                // Show Load More if any channel still has videos (buffered or fetchable)
+                const hasMore = activeChannels.some(c => c.hasMore || c.buffer.length > 0);
+                loadMoreBtn.style.display = hasMore ? 'block' : 'none';
+                loadMoreBtn.innerText = 'Load More';
 
             } catch (error) {
                 console.error(error);
@@ -582,33 +594,53 @@
             }
         }
 
-        // 3. RENDER AND DOM SORTING: Merge new videos seamlessly into the timeline
-        function renderAndSortVideos(videos) {
+        // Pull the top N videos across all channel buffers, skipping filtered-out ones
+        function drainTopVideos(n) {
+            const result = [];
+            while (result.length < n) {
+                // Find the channel whose buffer head is the most recent
+                let bestChannel = null;
+                let bestDate = null;
+                for (const channel of activeChannels) {
+                    if (channel.buffer.length === 0) continue;
+                    const date = new Date(channel.buffer[0].snippet.publishedAt);
+                    if (bestDate === null || date > bestDate) {
+                        bestDate = date;
+                        bestChannel = channel;
+                    }
+                }
+
+                // No more buffered videos
+                if (!bestChannel) break;
+
+                const video = bestChannel.buffer.shift();
+                const isShort = isShortVideoObject(video);
+                const isWatched = !!watchedVideos[video.id];
+
+                // Silently skip videos filtered out by active checkboxes
+                if (hideShortsCheckbox.checked && isShort) continue;
+                if (hideWatchedCheckbox.checked && isWatched) continue;
+
+                result.push(video);
+            }
+            return result;
+        }
+
+        // 3. RENDER: Add a list of videos to the DOM (already in sorted order)
+        function renderVideos(videos) {
             videos.forEach(video => {
                 const el = document.createElement('a');
                 el.href = `https://www.youtube.com/watch?v=${video.id}`;
                 el.className = 'video-item';
                 el.dataset.id = video.id;
 
-                // Check if video was previously watched
-                if (watchedVideos[video.id]) {
-                    el.classList.add('is-watched');
-                }
+                if (watchedVideos[video.id]) el.classList.add('is-watched');
+                if (isShortVideoObject(video)) el.classList.add('is-short');
 
-                // Tag the element if it's a Short
-                const embedWidth = parseInt(video.player?.embedWidth) || 16;
-                const embedHeight = parseInt(video.player?.embedHeight) || 9;
-                const isVertical = embedHeight >= embedWidth;
-                const isShortDuration = isShortVideo(video.contentDetails.duration);
-                if (isVertical && isShortDuration) {
-                    el.classList.add('is-short');
-                }
-
-                // Save the exact timestamp as a data attribute on the HTML element for sorting
                 const publishDate = new Date(video.snippet.publishedAt);
                 el.dataset.timestamp = publishDate.getTime();
 
-                const thumbUrl = video.snippet.thumbnails.maxres ? video.snippet.thumbnails.maxres.url : video.snippet.thumbnails.medium.url;
+                const thumbUrl = video.snippet.thumbnails.maxres?.url ?? video.snippet.thumbnails.medium.url;
                 const iconUrl = channelIcons[video.snippet.channelId] || '';
                 const exactTimestamp = publishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -678,55 +710,29 @@
                 videoListEl.appendChild(el);
             });
 
-            // Re-sort the physical HTML elements so the newest videos are always at the top
-            const items = Array.from(videoListEl.children);
-            items.sort((a, b) => parseInt(b.dataset.timestamp) - parseInt(a.dataset.timestamp));
-            videoListEl.append(...items);
             updateVideoCount();
         }
 
         // Update the display instantly when filters are toggled
         function updateFilters() {
-            if (hideShortsCheckbox.checked) {
-                videoListEl.classList.add('hide-shorts');
-            } else {
-                videoListEl.classList.remove('hide-shorts');
-            }
-            if (hideWatchedCheckbox.checked) {
-                videoListEl.classList.add('hide-watched');
-            } else {
-                videoListEl.classList.remove('hide-watched');
-            }
+            videoListEl.classList.toggle('hide-shorts', hideShortsCheckbox.checked);
+            videoListEl.classList.toggle('hide-watched', hideWatchedCheckbox.checked);
             updateVideoCount();
         }
 
         // Update the "Showing X/Y videos" text
         function updateVideoCount() {
-            const totalVideos = document.querySelectorAll('.video-item').length;
-            let hiddenCount = 0;
+            const allVideos = document.querySelectorAll('.video-item');
+            const hiddenVideos = document.querySelectorAll(
+                '.video-list.hide-shorts .video-item.is-short, .video-list.hide-watched .video-item.is-watched'
+            );
+            const total = allVideos.length;
+            const visible = total - hiddenVideos.length;
 
-            // Count hidden shorts if enabled
-            const isHidingShorts = videoListEl.classList.contains('hide-shorts');
-            if (isHidingShorts) {
-                hiddenCount += document.querySelectorAll('.video-item.is-short').length;
-            }
-
-            // Count hidden watched videos if enabled
-            const isHidingWatched = videoListEl.classList.contains('hide-watched');
-            if (isHidingWatched) {
-                hiddenCount += document.querySelectorAll('.video-item.is-watched:not(.is-short)').length;
-            }
-
-            // Handle case where a video is both short and watched (avoid double counting)
-            if (isHidingShorts && isHidingWatched) {
-                const doubleHidden = document.querySelectorAll('.video-item.is-short.is-watched').length;
-                hiddenCount -= doubleHidden;
-            }
-
-            const visibleVideos = totalVideos - hiddenCount;
-
-            if (totalVideos > 0) {
-                videoCountText.innerText = `Showing ${visibleVideos}/${totalVideos} videos`;
+            if (total > 0) {
+                videoCountText.innerText = visible === total
+                    ? `Showing ${total} videos`
+                    : `Showing ${visible}/${total} videos`;
             } else {
                 videoCountText.innerText = '';
             }
@@ -775,7 +781,14 @@
             return result;
         }
 
-        // Utility: Check if a video is a Short (<= 61 seconds)
+        // Utility: Check if a video object is a Short (vertical + <= 61 seconds)
+        function isShortVideoObject(video) {
+            const embedWidth = parseInt(video.player?.embedWidth) || 16;
+            const embedHeight = parseInt(video.player?.embedHeight) || 9;
+            return embedHeight >= embedWidth && isShortVideo(video.contentDetails.duration);
+        }
+
+        // Utility: Check if a duration string is a Short (<= 61 seconds)
         function isShortVideo(duration) {
             const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
             if (!match) return false;
