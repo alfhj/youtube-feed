@@ -26,7 +26,6 @@
             overflow: hidden;
         }
 
-        /* Layout */
         .sidebar {
             width: 300px;
             background-color: var(--sidebar-bg);
@@ -43,31 +42,18 @@
             box-sizing: border-box;
         }
 
-        /* Form Elements */
-        label {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        input,
-        textarea {
+        md-outlined-text-field {
             width: 100%;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 10px;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: inherit;
+            --md-sys-color-primary: var(--accent);
+            --md-sys-color-on-surface: var(--text-primary);
+            --md-sys-color-on-surface-variant: var(--text-secondary);
+            --md-sys-color-surface-container-highest: var(--bg-color);
+            --md-sys-color-outline: var(--border);
+            --md-outlined-text-field-label-text-font: "Roboto", Arial, sans-serif;
+            --md-outlined-text-field-input-text-font: "Roboto", Arial, sans-serif;
         }
 
-        textarea {
-            resize: vertical;
-            min-height: 150px;
-        }
-
-        button {
+        #fetch-btn {
             background-color: var(--text-primary);
             color: var(--bg-color);
             border: none;
@@ -78,11 +64,11 @@
             transition: background-color 0.2s;
         }
 
-        button:hover {
+        #fetch-btn:hover {
             background-color: #d1d1d1;
         }
 
-        button:disabled {
+        #fetch-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
@@ -107,7 +93,6 @@
             text-align: center;
         }
 
-        /* Video List Styles */
         .video-list {
             display: flex;
             flex-direction: column;
@@ -130,7 +115,6 @@
             background-color: rgba(255, 255, 255, 0.05);
         }
 
-        /* Player State Styles */
         .video-item.playing {
             display: block;
             position: relative;
@@ -235,7 +219,6 @@
             overflow: hidden;
         }
 
-        /* Channel Info container */
         .channel-info {
             display: flex;
             align-items: center;
@@ -288,7 +271,6 @@
             margin-top: 20px;
         }
 
-        /* Hide/show videos */
         .video-list.show-shorts-only .video-item:not(.is-short) {
             display: none !important;
         }
@@ -319,16 +301,51 @@
             gap: 12px;
         }
 
-        md-segmented-button-set {
-            --md-segmented-button-container-shape: 999px;
-            --md-segmented-button-container-color: #2b2b2b;
-            --md-segmented-button-unselected-label-text-color: var(--text-secondary);
-            --md-segmented-button-selected-label-text-color: #0b0b0b;
-            --md-segmented-button-selected-container-color: var(--accent);
-            --md-segmented-button-separator-color: var(--border);
+        .connected-button-group {
+            display: flex;
+        }
+
+        .connected-button-group md-filled-tonal-button {
+            --md-filled-tonal-button-container-shape: 0px;
+            --md-filled-tonal-button-container-color: #2b2b2b;
+            --md-filled-tonal-button-label-text-color: var(--text-secondary);
+            --md-filled-tonal-button-hover-label-text-color: var(--text-primary);
+            --md-filled-tonal-button-pressed-label-text-color: var(--text-primary);
+            --md-filled-tonal-button-container-height: 36px;
+            --md-filled-tonal-button-label-text-font: "Roboto", Arial, sans-serif;
+            --md-filled-tonal-button-label-text-size: 13px;
+            --md-filled-tonal-button-label-text-weight: 500;
+            outline: 1px solid var(--border);
+        }
+
+        .connected-button-group md-filled-tonal-button:first-child {
+            --md-filled-tonal-button-container-shape-start-start: 999px;
+            --md-filled-tonal-button-container-shape-end-start: 999px;
+        }
+
+        .connected-button-group md-filled-tonal-button:last-child {
+            --md-filled-tonal-button-container-shape-start-end: 999px;
+            --md-filled-tonal-button-container-shape-end-end: 999px;
+            margin-left: -1px;
+        }
+
+        .connected-button-group md-filled-tonal-button:not(:first-child):not(:last-child) {
+            margin-left: -1px;
+        }
+
+        .connected-button-group md-filled-tonal-button[selected] {
+            --md-filled-tonal-button-container-color: var(--accent);
+            --md-filled-tonal-button-label-text-color: #0b0b0b;
+            --md-filled-tonal-button-hover-label-text-color: #0b0b0b;
+            --md-filled-tonal-button-pressed-label-text-color: #0b0b0b;
+            --md-filled-tonal-button-hover-state-layer-color: #0b0b0b;
+            --md-filled-tonal-button-pressed-state-layer-color: #0b0b0b;
+            outline-color: var(--accent);
         }
 
         md-switch {
+            --md-sys-color-primary: var(--accent);
+            --md-sys-color-on-primary: #0b0b0b;
             --md-switch-selected-track-color: var(--accent);
             --md-switch-selected-handle-color: #0b0b0b;
             --md-switch-unselected-track-color: #2b2b2b;
@@ -338,14 +355,18 @@
         }
 
         #reset-watched {
-            color: var(--accent);
+            color: var(--text-secondary);
             cursor: pointer;
             font-size: 12px;
-            margin-left: 8px;
+            font-weight: 500;
             margin-left: auto;
+            transition: color 0.2s;
         }
 
-        /* Mobile Responsive */
+        #reset-watched:hover {
+            color: var(--text-primary);
+        }
+
         .sidebar-content {
             display: flex;
             flex-direction: column;
@@ -353,6 +374,7 @@
             padding: 20px;
         }
 
+        /* Mobile Responsive */
         @media (max-width: 768px) {
             body {
                 flex-direction: column;
@@ -385,10 +407,10 @@
             }
         }
     </style>
-        <script type="importmap">
+    <script type="importmap">
             {
                 "imports": {
-                    "@material/web/": "https://esm.run/@material/web/"
+                    "@material/web/": "https://esm.sh/@material/web/"
                 }
             }
         </script>
@@ -400,20 +422,20 @@
         <div class="sidebar-content" id="sidebar-content">
             <h2>Settings</h2>
             <div>
-                <label for="api-key">YouTube API Key</label>
-                <input type="password" id="api-key" placeholder="AIzaSy...">
+                <md-outlined-text-field id="api-key" label="YouTube API Key" type="password"
+                    placeholder="AIzaSy..."></md-outlined-text-field>
             </div>
             <div>
-                <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
-                <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
+                <md-outlined-text-field id="channel-list" label="Channels (IDs or @Handles, 1 per line)" type="textarea"
+                    rows="6" placeholder="@mrbeast or UCX6OQ3DkcsbYNE6H8uQQuVA"></md-outlined-text-field>
             </div>
             <div class="show-filter">
                 <span class="filter-label">Show:</span>
-                <md-segmented-button-set class="show-mode-set" single-select aria-label="Show videos">
-                    <md-segmented-button class="show-mode-btn" data-mode="all" label="All" selected></md-segmented-button>
-                    <md-segmented-button class="show-mode-btn" data-mode="shorts" label="Shorts"></md-segmented-button>
-                    <md-segmented-button class="show-mode-btn" data-mode="longs" label="Long"></md-segmented-button>
-                </md-segmented-button-set>
+                <div class="connected-button-group" aria-label="Show videos">
+                    <md-filled-tonal-button class="show-mode-btn" data-mode="all" selected>All</md-filled-tonal-button>
+                    <md-filled-tonal-button class="show-mode-btn" data-mode="shorts">Shorts</md-filled-tonal-button>
+                    <md-filled-tonal-button class="show-mode-btn" data-mode="longs">Long</md-filled-tonal-button>
+                </div>
             </div>
             <div class="watched-filter">
                 <span class="filter-label">Hide Watched</span>
@@ -433,9 +455,7 @@
     </div>
 
     <script type="module">
-        import '@material/web/segmentedbutton/segmented-button-set.js';
-        import '@material/web/segmentedbutton/segmented-button.js';
-        import '@material/web/switch/switch.js';
+        import '@material/web/all.js';
 
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key');
@@ -522,7 +542,7 @@
             const channelInputText = channelListInput.value.trim();
 
             errorContainer.innerText = '';
-            closeActiveVideo();
+            try { closeActiveVideo(); } catch (e) { }
 
             if (!apiKey || !channelInputText) {
                 errorContainer.innerText = 'Please enter an API Key and at least one channel.';
@@ -735,7 +755,7 @@
                             const iframe = this.querySelector('iframe');
                             if (iframe) {
                                 const requestFS = iframe.requestFullscreen || iframe.webkitRequestFullscreen;
-                                if (requestFS) requestFS.call(iframe).catch(() => {});
+                                if (requestFS) requestFS.call(iframe).catch(() => { });
                             }
                         }
                     }, 400);
@@ -772,11 +792,7 @@
             localStorage.setItem('ytShowMode', showMode);
             showModeButtons.forEach(button => {
                 const isActive = button.dataset.mode === showMode;
-                if (isActive) {
-                    button.setAttribute('selected', '');
-                } else {
-                    button.removeAttribute('selected');
-                }
+                button.toggleAttribute('selected', isActive);
             });
             updateFilters();
         }
