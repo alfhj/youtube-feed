@@ -289,7 +289,11 @@
         }
 
         /* Hide/show videos */
-        .video-list.hide-shorts .video-item.is-short {
+        .video-list.show-shorts-only .video-item:not(.is-short) {
+            display: none !important;
+        }
+
+        .video-list.show-longs-only .video-item.is-short {
             display: none !important;
         }
 
@@ -297,11 +301,115 @@
             display: none !important;
         }
 
+        .show-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .segmented-control {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            overflow: hidden;
+            background-color: #2b2b2b;
+        }
+
+        .segmented-control button {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            border-radius: 0;
+        }
+
+        .segmented-control button + button {
+            border-left: 1px solid var(--border);
+        }
+
+        .segmented-control button.active {
+            background-color: var(--accent);
+            color: #0b0b0b;
+        }
+
+        .segmented-control button:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .watched-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pill-toggle {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .pill-toggle input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .pill-toggle-ui {
+            width: 38px;
+            height: 20px;
+            border-radius: 999px;
+            background-color: #2b2b2b;
+            border: 1px solid var(--border);
+            position: relative;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .pill-toggle-ui::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: #9a9a9a;
+            transform: translate(2px, -50%);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .pill-toggle input:checked + .pill-toggle-ui {
+            background-color: var(--accent);
+            border-color: var(--border);
+        }
+
+        .pill-toggle input:checked + .pill-toggle-ui::after {
+            transform: translate(20px, -50%);
+            background-color: #0b0b0b;
+        }
+
+        .pill-toggle input:focus-visible + .pill-toggle-ui {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
         #reset-watched {
             color: var(--accent);
             cursor: pointer;
             font-size: 12px;
             margin-left: 8px;
+            margin-left: auto;
         }
 
         /* Mobile Responsive */
@@ -359,13 +467,20 @@
                 <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
                 <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="hide-shorts" style="width: auto;">
-                <label for="hide-shorts" style="margin: 0; cursor: pointer;">Hide Shorts</label>
+            <div class="show-filter">
+                <span class="filter-label">Show:</span>
+                <div class="segmented-control" role="group" aria-label="Show videos">
+                    <button type="button" class="show-mode-btn" data-mode="all" aria-pressed="true">All</button>
+                    <button type="button" class="show-mode-btn" data-mode="shorts" aria-pressed="false">Shorts</button>
+                    <button type="button" class="show-mode-btn" data-mode="longs" aria-pressed="false">Long</button>
+                </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="checkbox" id="hide-watched" style="width: auto;">
-                <label for="hide-watched" style="margin: 0; cursor: pointer;">Hide Watched</label>
+            <div class="watched-filter">
+                <span class="filter-label">Hide Watched</span>
+                <label class="pill-toggle">
+                    <input type="checkbox" id="hide-watched" aria-label="Hide watched">
+                    <span class="pill-toggle-ui" aria-hidden="true"></span>
+                </label>
                 <span id="reset-watched">reset</span>
             </div>
             <button id="fetch-btn">Fetch Latest Videos</button>
@@ -384,7 +499,7 @@
         // DOM Elements
         const apiKeyInput = document.getElementById('api-key');
         const channelListInput = document.getElementById('channel-list');
-        const hideShortsCheckbox = document.getElementById('hide-shorts');
+        const showModeButtons = Array.from(document.querySelectorAll('.show-mode-btn'));
         const hideWatchedCheckbox = document.getElementById('hide-watched');
         const resetWatchedBtn = document.getElementById('reset-watched');
         const fetchBtn = document.getElementById('fetch-btn');
@@ -401,20 +516,21 @@
         let activeVideoHTML = "";
         let activeVideoId = null; // Track the ID of the currently playing video
         let watchedVideos = JSON.parse(localStorage.getItem('ytWatchedVideos') || '{}'); // Load watched videos from storage
+        let showMode = 'all'; // all | shorts | longs
 
         // Load saved data on startup
         document.addEventListener('DOMContentLoaded', () => {
             const savedApiKey = localStorage.getItem('ytApiKey');
             const savedChannels = localStorage.getItem('ytChannels');
-            const savedShortsToggle = localStorage.getItem('ytHideShorts');
+            const savedShowMode = localStorage.getItem('ytShowMode');
             const savedWatchedToggle = localStorage.getItem('ytHideWatched');
 
             if (savedApiKey) apiKeyInput.value = savedApiKey;
             if (savedChannels) channelListInput.value = savedChannels;
-            if (savedShortsToggle === 'true') hideShortsCheckbox.checked = true;
+            if (savedShowMode) showMode = savedShowMode;
             if (savedWatchedToggle === 'true') hideWatchedCheckbox.checked = true;
             if (savedApiKey && savedChannels) fetchAllVideos(); // Auto-fetch if data exists
-            updateFilters();
+            setShowMode(showMode);
         });
 
         // Event Listeners
@@ -422,9 +538,10 @@
         loadMoreBtn.addEventListener('click', fetchNextBatch);
         apiKeyInput.addEventListener('input', () => localStorage.setItem('ytApiKey', apiKeyInput.value));
         channelListInput.addEventListener('input', () => localStorage.setItem('ytChannels', channelListInput.value));
-        hideShortsCheckbox.addEventListener('change', () => {
-            localStorage.setItem('ytHideShorts', hideShortsCheckbox.checked);
-            updateFilters();
+        showModeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                setShowMode(button.dataset.mode || 'all');
+            });
         });
         hideWatchedCheckbox.addEventListener('change', () => {
             localStorage.setItem('ytHideWatched', hideWatchedCheckbox.checked);
@@ -695,10 +812,11 @@
 
         // Update the display instantly when filters are toggled
         function updateFilters() {
-            if (hideShortsCheckbox.checked) {
-                videoListEl.classList.add('hide-shorts');
-            } else {
-                videoListEl.classList.remove('hide-shorts');
+            videoListEl.classList.remove('show-shorts-only', 'show-longs-only');
+            if (showMode === 'shorts') {
+                videoListEl.classList.add('show-shorts-only');
+            } else if (showMode === 'longs') {
+                videoListEl.classList.add('show-longs-only');
             }
             if (hideWatchedCheckbox.checked) {
                 videoListEl.classList.add('hide-watched');
@@ -708,30 +826,29 @@
             updateVideoCount();
         }
 
+        function setShowMode(mode) {
+            showMode = mode;
+            localStorage.setItem('ytShowMode', showMode);
+            showModeButtons.forEach(button => {
+                const isActive = button.dataset.mode === showMode;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+            updateFilters();
+        }
+
         // Update the "Showing X/Y videos" text
         function updateVideoCount() {
-            const totalVideos = document.querySelectorAll('.video-item').length;
-            let hiddenCount = 0;
-
-            // Count hidden shorts if enabled
-            const isHidingShorts = videoListEl.classList.contains('hide-shorts');
-            if (isHidingShorts) {
-                hiddenCount += document.querySelectorAll('.video-item.is-short').length;
-            }
-
-            // Count hidden watched videos if enabled
-            const isHidingWatched = videoListEl.classList.contains('hide-watched');
-            if (isHidingWatched) {
-                hiddenCount += document.querySelectorAll('.video-item.is-watched:not(.is-short)').length;
-            }
-
-            // Handle case where a video is both short and watched (avoid double counting)
-            if (isHidingShorts && isHidingWatched) {
-                const doubleHidden = document.querySelectorAll('.video-item.is-short.is-watched').length;
-                hiddenCount -= doubleHidden;
-            }
-
-            const visibleVideos = totalVideos - hiddenCount;
+            const items = Array.from(document.querySelectorAll('.video-item'));
+            const totalVideos = items.length;
+            const visibleVideos = items.filter(item => {
+                const isShort = item.classList.contains('is-short');
+                const isWatched = item.classList.contains('is-watched');
+                if (showMode === 'shorts' && !isShort) return false;
+                if (showMode === 'longs' && isShort) return false;
+                if (hideWatchedCheckbox.checked && isWatched) return false;
+                return true;
+            }).length;
 
             if (totalVideos > 0) {
                 videoCountText.innerText = `Showing ${visibleVideos}/${totalVideos} videos`;
