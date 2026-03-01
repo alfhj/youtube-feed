@@ -116,10 +116,19 @@ window.closeActiveVideo = function (event) {
 };
 
 // Global Event Delegation for Dynamic Elements
+let middleMouseDownItem = null;
+
+videoListEl.addEventListener("mousedown", (event) => {
+    if (event.button === 1) {
+        middleMouseDownItem = event.target.closest(".video-item") || null;
+    }
+});
+
 videoListEl.addEventListener("mouseup", (event) => {
     const item = event.target.closest(".video-item");
     if (!item) return;
     if (event.button === 1 || event.ctrlKey || event.metaKey) {
+        if (event.button === 1 && item !== middleMouseDownItem) return;
         markVideoAsWatched(item.dataset.id);
     }
 });
