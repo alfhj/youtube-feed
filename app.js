@@ -1,36 +1,36 @@
 // DOM Elements
-const apiKeyInput = document.getElementById('api-key');
-const channelListInput = document.getElementById('channel-list');
-const showModeButtons = Array.from(document.querySelectorAll('.show-mode-btn'));
-const hideWatchedCheckbox = document.getElementById('hide-watched');
-const resetWatchedBtn = document.getElementById('reset-watched');
-const fetchBtn = document.getElementById('fetch-btn');
-const loadMoreBtn = document.getElementById('load-more');
-const videoListEl = document.getElementById('video-list');
-const errorContainer = document.getElementById('error-container');
-const loadingIndicator = document.getElementById('loading-indicator');
-const videoCountText = document.getElementById('video-count-text');
+const apiKeyInput = document.getElementById("api-key");
+const channelListInput = document.getElementById("channel-list");
+const showModeButtons = Array.from(document.querySelectorAll(".show-mode-btn"));
+const hideWatchedCheckbox = document.getElementById("hide-watched");
+const resetWatchedBtn = document.getElementById("reset-watched");
+const fetchBtn = document.getElementById("fetch-btn");
+const loadMoreBtn = document.getElementById("load-more");
+const videoListEl = document.getElementById("video-list");
+const errorContainer = document.getElementById("error-container");
+const loadingIndicator = document.getElementById("loading-indicator");
+const videoCountText = document.getElementById("video-count-text");
 
 // 1. Central State Object
 const state = {
-    apiKey: localStorage.getItem('ytApiKey') || '',
-    channelsInput: localStorage.getItem('ytChannels') || '',
+    apiKey: localStorage.getItem("ytApiKey") || "",
+    channelsInput: localStorage.getItem("ytChannels") || "",
     videos: [], // Collection of all fetched video objects
     activeChannels: [],
     channelIcons: {},
     filters: {
-        mode: localStorage.getItem('ytShowMode') || 'all', // all | shorts | longs
-        hideWatched: localStorage.getItem('ytHideWatched') === 'true'
+        mode: localStorage.getItem("ytShowMode") || "all", // all | shorts | longs
+        hideWatched: localStorage.getItem("ytHideWatched") === "true",
     },
-    watchedIds: JSON.parse(localStorage.getItem('ytWatchedVideos') || '{}'),
+    watchedIds: JSON.parse(localStorage.getItem("ytWatchedVideos") || "{}"),
     playingVideoId: null,
     expandedVideoId: null,
     isFetching: false,
-    error: null
+    error: null,
 };
 
 // 2. Initialize App
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
     apiKeyInput.value = state.apiKey;
     channelListInput.value = state.channelsInput;
     hideWatchedCheckbox.checked = state.filters.hideWatched;
@@ -45,58 +45,58 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // 3. Event Listeners
-fetchBtn.addEventListener('click', fetchAllVideos);
-loadMoreBtn.addEventListener('click', fetchNextBatch);
+fetchBtn.addEventListener("click", fetchAllVideos);
+loadMoreBtn.addEventListener("click", fetchNextBatch);
 
-apiKeyInput.addEventListener('input', (e) => {
+apiKeyInput.addEventListener("input", (e) => {
     state.apiKey = e.target.value;
-    localStorage.setItem('ytApiKey', state.apiKey);
+    localStorage.setItem("ytApiKey", state.apiKey);
 });
 
-channelListInput.addEventListener('input', (e) => {
+channelListInput.addEventListener("input", (e) => {
     state.channelsInput = e.target.value;
-    localStorage.setItem('ytChannels', state.channelsInput);
+    localStorage.setItem("ytChannels", state.channelsInput);
 });
 
-showModeButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        setFilterMode(button.dataset.mode || 'all');
+showModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        setFilterMode(button.dataset.mode || "all");
     });
 });
 
-hideWatchedCheckbox.addEventListener('change', (e) => {
+hideWatchedCheckbox.addEventListener("change", (e) => {
     state.filters.hideWatched = e.target.checked;
-    localStorage.setItem('ytHideWatched', state.filters.hideWatched);
+    localStorage.setItem("ytHideWatched", state.filters.hideWatched);
     renderApp();
 });
 
-resetWatchedBtn.addEventListener('click', () => {
+resetWatchedBtn.addEventListener("click", () => {
     state.watchedIds = {};
-    localStorage.removeItem('ytWatchedVideos');
+    localStorage.removeItem("ytWatchedVideos");
     renderApp();
 });
 
 // 4. State Mutators
 function setFilterMode(mode) {
     state.filters.mode = mode;
-    localStorage.setItem('ytShowMode', mode);
+    localStorage.setItem("ytShowMode", mode);
     updateFilterButtonsUI();
     renderApp();
 }
 
 function updateFilterButtonsUI() {
-    showModeButtons.forEach(button => {
+    showModeButtons.forEach((button) => {
         const isActive = button.dataset.mode === state.filters.mode;
-        button.classList.toggle('active', isActive);
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
 }
 
 function markVideoAsWatched(videoId) {
     if (!state.watchedIds[videoId]) {
         state.watchedIds[videoId] = true;
-        localStorage.setItem('ytWatchedVideos', JSON.stringify(state.watchedIds));
-        renderApp(); // Magically updates the DOM!
+        localStorage.setItem("ytWatchedVideos", JSON.stringify(state.watchedIds));
+        setTimeout(() => renderApp(), 0);
     }
 }
 
@@ -116,20 +116,20 @@ window.closeActiveVideo = function (event) {
 };
 
 // Global Event Delegation for Dynamic Elements
-videoListEl.addEventListener('mouseup', (event) => {
-    const item = event.target.closest('.video-item');
+videoListEl.addEventListener("mouseup", (event) => {
+    const item = event.target.closest(".video-item");
     if (!item) return;
     if (event.button === 1 || event.ctrlKey || event.metaKey) {
         markVideoAsWatched(item.dataset.id);
     }
 });
 
-videoListEl.addEventListener('click', (event) => {
-    const item = event.target.closest('.video-item');
+videoListEl.addEventListener("click", (event) => {
+    const item = event.target.closest(".video-item");
     if (!item) return;
 
     // Ignore if clicking close button, the onclick handler on the button will catch it
-    if (event.target.closest('.close-btn')) return;
+    if (event.target.closest(".close-btn")) return;
 
     // Standard clicks only
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -158,11 +158,11 @@ videoListEl.addEventListener('click', (event) => {
         // Handle responsive fullscreen for mobile shorts
         setTimeout(() => {
             const activeItem = document.querySelector(`.video-item[data-id="${videoId}"]`);
-            if (activeItem && activeItem.classList.contains('is-short') && window.innerWidth <= 768) {
-                const iframe = activeItem.querySelector('iframe');
+            if (activeItem && activeItem.classList.contains("is-short") && window.innerWidth <= 768) {
+                const iframe = activeItem.querySelector("iframe");
                 if (iframe) {
                     const requestFS = iframe.requestFullscreen || iframe.webkitRequestFullscreen;
-                    if (requestFS) requestFS.call(iframe).catch(() => { });
+                    if (requestFS) requestFS.call(iframe).catch(() => {});
                 }
             }
         }, 100);
@@ -179,12 +179,15 @@ async function fetchAllVideos() {
     const channelInputText = state.channelsInput.trim();
 
     if (!apiKey || !channelInputText) {
-        state.error = 'Please enter an API Key and at least one channel.';
+        state.error = "Please enter an API Key and at least one channel.";
         renderApp();
         return;
     }
 
-    const channels = channelInputText.split(/[\n,]+/).map(c => c.trim()).filter(c => c);
+    const channels = channelInputText
+        .split(/[\n,]+/)
+        .map((c) => c.trim())
+        .filter((c) => c);
 
     // Reset data
     state.activeChannels = [];
@@ -196,7 +199,7 @@ async function fetchAllVideos() {
     try {
         // Find "Uploads" playlist ID for every channel input
         for (const identifier of channels) {
-            let queryUrl = identifier.startsWith('@')
+            let queryUrl = identifier.startsWith("@")
                 ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&forHandle=${identifier}&key=${apiKey}`
                 : `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${identifier}&key=${apiKey}`;
 
@@ -210,8 +213,8 @@ async function fetchAllVideos() {
                 state.activeChannels.push({
                     playlistId: channelData.contentDetails.relatedPlaylists.uploads,
                     channelId: channelData.id,
-                    nextPageToken: '',
-                    hasMore: true
+                    nextPageToken: "",
+                    hasMore: true,
                 });
             }
         }
@@ -221,7 +224,7 @@ async function fetchAllVideos() {
         await fetchNextBatch();
     } catch (error) {
         console.error(error);
-        state.error = error.message || 'An error occurred while fetching videos.';
+        state.error = error.message || "An error occurred while fetching videos.";
         state.isFetching = false;
         renderApp();
     }
@@ -245,7 +248,7 @@ async function fetchNextBatch() {
             const plData = await plRes.json();
 
             if (plData.items) {
-                plData.items.forEach(item => videoIdsToFetch.push(item.snippet.resourceId.videoId));
+                plData.items.forEach((item) => videoIdsToFetch.push(item.snippet.resourceId.videoId));
             }
 
             if (plData.nextPageToken) {
@@ -263,17 +266,19 @@ async function fetchNextBatch() {
 
         let newVideos = [];
         for (let i = 0; i < videoIdsToFetch.length; i += 50) {
-            const batchIds = videoIdsToFetch.slice(i, i + 50).join(',');
-            const statRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`);
+            const batchIds = videoIdsToFetch.slice(i, i + 50).join(",");
+            const statRes = await fetch(
+                `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`,
+            );
             const statData = await statRes.json();
             if (statData.items) newVideos.push(...statData.items);
         }
 
         // Decorate and format video objects natively for our state
-        newVideos.forEach(v => {
+        newVideos.forEach((v) => {
             const publishDate = new Date(v.snippet.publishedAt);
             v.timestamp = publishDate.getTime();
-            v.exactTimestampStr = publishDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+            v.exactTimestampStr = publishDate.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
             v.formattedDuration = formatDuration(v.contentDetails.duration);
             v.formattedViews = formatViews(v.statistics.viewCount);
 
@@ -282,17 +287,18 @@ async function fetchNextBatch() {
             const isVertical = embedHeight >= embedWidth;
             v.isShort = isVertical && isShortVideo(v.contentDetails.duration);
 
-            v.thumbUrl = v.snippet.thumbnails.maxres ? v.snippet.thumbnails.maxres.url : v.snippet.thumbnails.medium.url;
+            v.thumbUrl = v.snippet.thumbnails.maxres
+                ? v.snippet.thumbnails.maxres.url
+                : v.snippet.thumbnails.medium.url;
 
             state.videos.push(v);
         });
 
         // Deduplicate and sort all memory videos
         const uniqueVideosMap = new Map();
-        state.videos.forEach(v => uniqueVideosMap.set(v.id, v));
+        state.videos.forEach((v) => uniqueVideosMap.set(v.id, v));
         state.videos = Array.from(uniqueVideosMap.values());
         state.videos.sort((a, b) => b.timestamp - a.timestamp);
-
     } catch (error) {
         console.error(error);
         state.error = error.message;
@@ -305,37 +311,38 @@ async function fetchNextBatch() {
 // 6. The Heart of the Pattern: State to UI Render Function
 function renderApp() {
     // Top-level Error display
-    errorContainer.innerText = state.error || '';
+    errorContainer.innerText = state.error || "";
 
     // Loading State
     if (state.isFetching && state.videos.length === 0) {
-        loadingIndicator.style.display = 'block';
-        loadingIndicator.innerText = 'Fetching videos...';
+        loadingIndicator.style.display = "block";
+        loadingIndicator.innerText = "Fetching videos...";
         fetchBtn.disabled = true;
     } else {
-        loadingIndicator.style.display = 'none';
+        loadingIndicator.style.display = "none";
         fetchBtn.disabled = state.isFetching;
     }
 
     // Determine which videos to display based on the filter states
-    const visibleVideos = state.videos.filter(video => {
+    const visibleVideos = state.videos.filter((video) => {
         const isWatched = !!state.watchedIds[video.id];
-        if (state.filters.mode === 'shorts' && !video.isShort) return false;
-        if (state.filters.mode === 'longs' && video.isShort) return false;
+        if (state.filters.mode === "shorts" && !video.isShort) return false;
+        if (state.filters.mode === "longs" && video.isShort) return false;
         if (state.filters.hideWatched && isWatched) return false;
         return true;
     });
 
     // Derive HTML purely from state variables!
-    const html = visibleVideos.map(video => {
-        const isPlaying = state.playingVideoId === video.id;
-        const isExpanding = state.expandedVideoId === video.id;
-        const isWatchedClass = state.watchedIds[video.id] ? 'is-watched' : '';
-        const isShortClass = video.isShort ? 'is-short' : '';
-        const classes = `video-item ${isWatchedClass} ${isShortClass} ${isPlaying ? 'playing' : ''} ${isExpanding ? 'expanding' : ''}`;
+    const html = visibleVideos
+        .map((video) => {
+            const isPlaying = state.playingVideoId === video.id;
+            const isExpanding = state.expandedVideoId === video.id;
+            const isWatchedClass = state.watchedIds[video.id] ? "is-watched" : "";
+            const isShortClass = video.isShort ? "is-short" : "";
+            const classes = `video-item ${isWatchedClass} ${isShortClass} ${isPlaying ? "playing" : ""} ${isExpanding ? "expanding" : ""}`;
 
-        if (isPlaying) {
-            return `
+            if (isPlaying) {
+                return `
                 <div class="${classes}" data-id="${video.id}">
                     <button class="close-btn" onclick="closeActiveVideo(event)">✕</button>
                     <iframe 
@@ -347,12 +354,12 @@ function renderApp() {
                     </iframe>
                 </div>
             `;
-        }
+            }
 
-        const iconUrl = state.channelIcons[video.snippet.channelId] || '';
-        const publishDate = new Date(video.snippet.publishedAt); // required for dynamic timeSince
+            const iconUrl = state.channelIcons[video.snippet.channelId] || "";
+            const publishDate = new Date(video.snippet.publishedAt); // required for dynamic timeSince
 
-        return `
+            return `
             <a href="https://www.youtube.com/watch?v=${video.id}" class="${classes}" data-id="${video.id}">
                 <div class="thumbnail-wrapper">
                     <img class="thumbnail" src="${video.thumbUrl}" alt="Thumbnail">
@@ -361,7 +368,7 @@ function renderApp() {
                 <div class="video-info">
                     <h3 class="video-title">${video.snippet.title}</h3>
                     <div class="channel-info">
-                        ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ''}
+                        ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ""}
                         <div class="channel-name">${video.snippet.channelTitle}</div>
                     </div>
                     <div class="meta-container">
@@ -375,35 +382,36 @@ function renderApp() {
                 </div>
             </a>
         `;
-    }).join('');
+        })
+        .join("");
 
     // Write all changes to the DOM at once
     videoListEl.innerHTML = html;
 
-    // Derived Counter and button visibility 
+    // Derived Counter and button visibility
     if (state.videos.length > 0) {
         videoCountText.innerText = `Showing ${visibleVideos.length}/${state.videos.length} videos`;
-        const hasMore = state.activeChannels.some(c => c.hasMore);
+        const hasMore = state.activeChannels.some((c) => c.hasMore);
         if (hasMore) {
-            loadMoreBtn.style.display = 'block';
-            loadMoreBtn.innerText = state.isFetching ? 'Loading older videos...' : 'Load More';
+            loadMoreBtn.style.display = "block";
+            loadMoreBtn.innerText = state.isFetching ? "Loading older videos..." : "Load More";
             loadMoreBtn.disabled = state.isFetching;
         } else {
-            loadMoreBtn.style.display = 'none';
+            loadMoreBtn.style.display = "none";
         }
     } else {
-        videoCountText.innerText = '';
-        loadMoreBtn.style.display = 'none';
+        videoCountText.innerText = "";
+        loadMoreBtn.style.display = "none";
     }
 }
 
 // 7. Data Format Utilities
 function formatViews(views) {
-    if (!views) return '0 views';
+    if (!views) return "0 views";
     const num = parseInt(views);
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M views';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K views';
-    return num.toLocaleString() + ' views';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M views";
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K views";
+    return num.toLocaleString() + " views";
 }
 
 function timeSince(date) {
@@ -423,18 +431,18 @@ function timeSince(date) {
 
 function formatDuration(duration) {
     const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) return '0:00';
-    const hours = (parseInt(match[1]) || 0);
-    const minutes = (parseInt(match[2]) || 0);
-    const seconds = (parseInt(match[3]) || 0);
-    let result = '';
+    if (!match) return "0:00";
+    const hours = parseInt(match[1]) || 0;
+    const minutes = parseInt(match[2]) || 0;
+    const seconds = parseInt(match[3]) || 0;
+    let result = "";
     if (hours > 0) {
-        result += hours + ':';
-        result += minutes.toString().padStart(2, '0') + ':';
+        result += hours + ":";
+        result += minutes.toString().padStart(2, "0") + ":";
     } else {
-        result += minutes + ':';
+        result += minutes + ":";
     }
-    result += seconds.toString().padStart(2, '0');
+    result += seconds.toString().padStart(2, "0");
     return result;
 }
 
@@ -444,6 +452,6 @@ function isShortVideo(duration) {
     const hours = parseInt(match[1]) || 0;
     const minutes = parseInt(match[2]) || 0;
     const seconds = parseInt(match[3]) || 0;
-    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
     return totalSeconds <= 61;
 }
