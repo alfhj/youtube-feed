@@ -426,7 +426,12 @@ function renderApp() {
                             <div class="upload-timestamp">${video.exactTimestampStr}</div>
                         </div>
                     </div>
-                    <span class="mark-watched-btn ${state.watchedIds[video.id] ? "is-marked" : ""}" role="button" aria-label="Mark as watched" title="Mark as watched">👁</span>
+                    <span class="mark-watched-btn ${state.watchedIds[video.id] ? "is-marked" : ""}" role="button" aria-label="Mark as watched" title="Mark as watched">
+                        <svg class="mark-watched-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M1.5 12s3.8-6.5 10.5-6.5S22.5 12 22.5 12s-3.8 6.5-10.5 6.5S1.5 12 1.5 12Z"></path>
+                            <circle cx="12" cy="12" r="3.25"></circle>
+                        </svg>
+                    </span>
                 </div>
             </a>
         `;

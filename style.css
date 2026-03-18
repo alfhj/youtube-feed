@@ -244,6 +244,17 @@ button:disabled {
     line-height: 1;
 }
 
+.mark-watched-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .mark-watched-btn:hover {
     color: var(--text-primary);
     border-color: var(--accent);
