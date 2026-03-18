@@ -134,6 +134,17 @@ videoListEl.addEventListener("mouseup", (event) => {
 });
 
 videoListEl.addEventListener("click", (event) => {
+    const watchedBtn = event.target.closest(".mark-watched-btn");
+    if (watchedBtn) {
+        const watchedItem = watchedBtn.closest(".video-item");
+        if (watchedItem) {
+            event.preventDefault();
+            event.stopPropagation();
+            markVideoAsWatched(watchedItem.dataset.id);
+        }
+        return;
+    }
+
     const item = event.target.closest(".video-item");
     if (!item) return;
 
@@ -374,20 +385,23 @@ function renderApp() {
                     <img class="thumbnail" src="${video.thumbUrl}" alt="Thumbnail">
                     <span class="video-duration">${video.formattedDuration}</span>
                 </div>
-                <div class="video-info">
-                    <h3 class="video-title">${video.snippet.title}</h3>
-                    <div class="channel-info">
-                        ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ""}
-                        <div class="channel-name">${video.snippet.channelTitle}</div>
-                    </div>
-                    <div class="meta-container">
-                        <div class="video-meta">
-                            <span>${video.formattedViews}</span>
-                            <span>•</span>
-                            <span>${timeSince(publishDate)}</span>
+                <div class="video-details-row">
+                    <div class="video-info">
+                        <h3 class="video-title">${video.snippet.title}</h3>
+                        <div class="channel-info">
+                            ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ""}
+                            <div class="channel-name">${video.snippet.channelTitle}</div>
                         </div>
-                        <div class="upload-timestamp">${video.exactTimestampStr}</div>
+                        <div class="meta-container">
+                            <div class="video-meta">
+                                <span>${video.formattedViews}</span>
+                                <span>•</span>
+                                <span>${timeSince(publishDate)}</span>
+                            </div>
+                            <div class="upload-timestamp">${video.exactTimestampStr}</div>
+                        </div>
                     </div>
+                    <span class="mark-watched-btn ${state.watchedIds[video.id] ? "is-marked" : ""}" role="button" aria-label="Mark as watched" title="Mark as watched">👁</span>
                 </div>
             </a>
         `;

@@ -168,7 +168,9 @@ button:disabled {
     justify-content: center;
     cursor: pointer;
     z-index: 10;
-    transition: background-color 0.2s, transform 0.2s;
+    transition:
+        background-color 0.2s,
+        transform 0.2s;
     padding: 0;
 }
 
@@ -213,6 +215,43 @@ button:disabled {
     gap: 6px;
     padding-top: 4px;
     pointer-events: none;
+    flex: 1;
+}
+
+.video-details-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.mark-watched-btn {
+    pointer-events: auto;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.02);
+    user-select: none;
+    line-height: 1;
+}
+
+.mark-watched-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+}
+
+.mark-watched-btn.is-marked {
+    color: #0b0b0b;
+    border-color: var(--accent);
+    background-color: var(--accent);
 }
 
 .video-title {
@@ -320,11 +359,13 @@ button:disabled {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
+    transition:
+        background-color 0.2s,
+        color 0.2s;
     border-radius: 0;
 }
 
-.segmented-control button+button {
+.segmented-control button + button {
     border-left: 1px solid var(--border);
 }
 
@@ -364,7 +405,9 @@ button:disabled {
     background-color: #2b2b2b;
     border: 1px solid var(--border);
     position: relative;
-    transition: background-color 0.2s, border-color 0.2s;
+    transition:
+        background-color 0.2s,
+        border-color 0.2s;
 }
 
 .pill-toggle-ui::after {
@@ -377,20 +420,22 @@ button:disabled {
     border-radius: 50%;
     background-color: #9a9a9a;
     transform: translate(2px, -50%);
-    transition: transform 0.2s, background-color 0.2s;
+    transition:
+        transform 0.2s,
+        background-color 0.2s;
 }
 
-.pill-toggle input:checked+.pill-toggle-ui {
+.pill-toggle input:checked + .pill-toggle-ui {
     background-color: var(--accent);
     border-color: var(--border);
 }
 
-.pill-toggle input:checked+.pill-toggle-ui::after {
+.pill-toggle input:checked + .pill-toggle-ui::after {
     transform: translate(20px, -50%);
     background-color: #0b0b0b;
 }
 
-.pill-toggle input:focus-visible+.pill-toggle-ui {
+.pill-toggle input:focus-visible + .pill-toggle-ui {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -436,6 +481,10 @@ button:disabled {
 
     .video-item:not(.playing):not(.expanding) {
         flex-direction: column;
+    }
+
+    .video-details-row {
+        width: 100%;
     }
 
     .video-title {
