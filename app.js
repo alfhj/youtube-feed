@@ -294,7 +294,7 @@ async function fetchNextBatch() {
             const embedWidth = parseInt(v.player?.embedWidth) || 16;
             const embedHeight = parseInt(v.player?.embedHeight) || 9;
             const isVertical = embedHeight >= embedWidth;
-            v.isShort = isVertical && isShortVideo(v.contentDetails.duration);
+            v.isShort = isVertical;
 
             v.thumbUrl = v.snippet.thumbnails.maxres
                 ? v.snippet.thumbnails.maxres.url
@@ -453,14 +453,4 @@ function formatDuration(duration) {
     }
     result += seconds.toString().padStart(2, "0");
     return result;
-}
-
-function isShortVideo(duration) {
-    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-    if (!match) return false;
-    const hours = parseInt(match[1]) || 0;
-    const minutes = parseInt(match[2]) || 0;
-    const seconds = parseInt(match[3]) || 0;
-    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-    return totalSeconds <= 61;
 }
