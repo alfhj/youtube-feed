@@ -220,7 +220,7 @@ button:disabled {
 
 .video-details-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     flex: 1;
 }
@@ -237,6 +237,7 @@ button:disabled {
     color: var(--text-secondary);
     font-size: 15px;
     font-weight: 700;
+    align-self: center;
     flex-shrink: 0;
     background-color: rgba(255, 255, 255, 0.02);
     user-select: none;
