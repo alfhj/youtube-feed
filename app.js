@@ -125,6 +125,8 @@ videoListEl.addEventListener("mousedown", (event) => {
 });
 
 videoListEl.addEventListener("mouseup", (event) => {
+    if (event.target.closest(".channel-link")) return;
+
     const item = event.target.closest(".video-item");
     if (!item) return;
     if (event.button === 1 || event.ctrlKey || event.metaKey) {
@@ -133,7 +135,30 @@ videoListEl.addEventListener("mouseup", (event) => {
     }
 });
 
+videoListEl.addEventListener("auxclick", (event) => {
+    const channelLink = event.target.closest(".channel-link");
+    if (!channelLink || event.button !== 1) return;
+
+    const channelUrl = channelLink.dataset.channelUrl;
+    if (!channelUrl) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    window.open(channelUrl, "_blank", "noopener");
+});
+
 videoListEl.addEventListener("click", (event) => {
+    const channelLink = event.target.closest(".channel-link");
+    if (channelLink) {
+        const channelUrl = channelLink.dataset.channelUrl;
+        if (channelUrl) {
+            event.preventDefault();
+            event.stopPropagation();
+            window.location.href = channelUrl;
+        }
+        return;
+    }
+
     const watchedBtn = event.target.closest(".mark-watched-btn");
     if (watchedBtn) {
         const watchedItem = watchedBtn.closest(".video-item");
@@ -388,7 +413,7 @@ function renderApp() {
                 <div class="video-details-row">
                     <div class="video-info">
                         <h3 class="video-title">${video.snippet.title}</h3>
-                        <div class="channel-info">
+                        <div class="channel-info channel-link" data-channel-url="https://www.youtube.com/channel/${video.snippet.channelId}" aria-label="Open channel ${video.snippet.channelTitle}" title="Open channel">
                             ${iconUrl ? `<img class="channel-icon" src="${iconUrl}" alt="Profile">` : ""}
                             <div class="channel-name">${video.snippet.channelTitle}</div>
                         </div>
