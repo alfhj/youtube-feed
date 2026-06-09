@@ -1,6 +1,6 @@
 // DOM Elements
 const apiKeyInput = document.getElementById("api-key");
-const channelListInput = document.getElementById("channel-list");
+const channelsListContainer = document.getElementById("channels-list-container");
 const showModeButtons = Array.from(document.querySelectorAll(".show-mode-btn"));
 const hideWatchedCheckbox = document.getElementById("hide-watched");
 const resetWatchedBtn = document.getElementById("reset-watched");
@@ -11,10 +11,38 @@ const errorContainer = document.getElementById("error-container");
 const loadingIndicator = document.getElementById("loading-indicator");
 const videoCountText = document.getElementById("video-count-text");
 
+function loadChannels() {
+    const raw = localStorage.getItem("ytChannels") || "";
+    if (!raw.trim()) {
+        return [];
+    }
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed.map(c => {
+                if (typeof c === 'string') return { value: c, enabled: true };
+                return { value: c.value || "", enabled: c.enabled !== false };
+            });
+        }
+    } catch (e) {
+        // Fallback to plain text parsing
+    }
+    return raw
+        .split(/[\n,]+/)
+        .map((c) => c.trim())
+        .filter((c) => c)
+        .map(c => ({ value: c, enabled: true }));
+}
+
+function saveChannels(channels) {
+    localStorage.setItem("ytChannels", JSON.stringify(channels));
+}
+
 // 1. Central State Object
 const state = {
     apiKey: localStorage.getItem("ytApiKey") || "",
-    channelsInput: localStorage.getItem("ytChannels") || "",
+    channels: loadChannels(),
+    showAddRow: false,
     videos: [], // Collection of all fetched video objects
     activeChannels: [],
     channelIcons: {},
@@ -32,12 +60,11 @@ const state = {
 // 2. Initialize App
 document.addEventListener("DOMContentLoaded", () => {
     apiKeyInput.value = state.apiKey;
-    channelListInput.value = state.channelsInput;
     hideWatchedCheckbox.checked = state.filters.hideWatched;
 
     updateFilterButtonsUI();
 
-    if (state.apiKey && state.channelsInput) {
+    if (state.apiKey && state.channels.some(c => c.enabled && c.value.trim())) {
         fetchAllVideos();
     } else {
         renderApp();
@@ -53,9 +80,70 @@ apiKeyInput.addEventListener("input", (e) => {
     localStorage.setItem("ytApiKey", state.apiKey);
 });
 
-channelListInput.addEventListener("input", (e) => {
-    state.channelsInput = e.target.value;
-    localStorage.setItem("ytChannels", state.channelsInput);
+function handleConfirmAddChannel() {
+    const input = document.getElementById("new-channel-input");
+    if (!input) return;
+    const value = input.value.trim();
+    if (value) {
+        state.channels.push({ value: value, enabled: true });
+        saveChannels(state.channels);
+    }
+    state.showAddRow = false;
+    renderApp();
+}
+
+channelsListContainer.addEventListener("change", (e) => {
+    const checkbox = e.target.closest(".channel-toggle-checkbox");
+    if (checkbox) {
+        const index = parseInt(checkbox.dataset.index);
+        state.channels[index].enabled = checkbox.checked;
+        saveChannels(state.channels);
+        renderApp();
+    }
+});
+
+channelsListContainer.addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest(".btn-delete");
+    if (deleteBtn) {
+        const index = parseInt(deleteBtn.dataset.index);
+        state.channels.splice(index, 1);
+        saveChannels(state.channels);
+        renderApp();
+        return;
+    }
+
+    const addBtn = e.target.closest(".add-channel-btn");
+    if (addBtn) {
+        state.showAddRow = true;
+        renderApp();
+        return;
+    }
+
+    const confirmBtn = e.target.closest("#confirm-new-channel");
+    if (confirmBtn) {
+        handleConfirmAddChannel();
+        return;
+    }
+
+    const cancelBtn = e.target.closest("#cancel-new-channel");
+    if (cancelBtn) {
+        state.showAddRow = false;
+        renderApp();
+        return;
+    }
+});
+
+channelsListContainer.addEventListener("keydown", (e) => {
+    if (e.target.id === "new-channel-input") {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleConfirmAddChannel();
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            state.showAddRow = false;
+            renderApp();
+        }
+    }
 });
 
 showModeButtons.forEach((button) => {
@@ -98,6 +186,16 @@ function markVideoAsWatched(videoId) {
         localStorage.setItem("ytWatchedVideos", JSON.stringify(state.watchedIds));
         setTimeout(() => renderApp(), 0);
     }
+}
+
+function toggleVideoWatched(videoId) {
+    if (state.watchedIds[videoId]) {
+        delete state.watchedIds[videoId];
+    } else {
+        state.watchedIds[videoId] = true;
+    }
+    localStorage.setItem("ytWatchedVideos", JSON.stringify(state.watchedIds));
+    setTimeout(() => renderApp(), 0);
 }
 
 window.closeActiveVideo = function (event) {
@@ -165,7 +263,7 @@ videoListEl.addEventListener("click", (event) => {
         if (watchedItem) {
             event.preventDefault();
             event.stopPropagation();
-            markVideoAsWatched(watchedItem.dataset.id);
+            toggleVideoWatched(watchedItem.dataset.id);
         }
         return;
     }
@@ -221,18 +319,13 @@ async function fetchAllVideos() {
     renderApp();
 
     const apiKey = state.apiKey.trim();
-    const channelInputText = state.channelsInput.trim();
+    const activeChannels = state.channels.filter((c) => c.enabled && c.value.trim());
 
-    if (!apiKey || !channelInputText) {
-        state.error = "Please enter an API Key and at least one channel.";
+    if (!apiKey || activeChannels.length === 0) {
+        state.error = "Please enter an API Key and enable at least one channel.";
         renderApp();
         return;
     }
-
-    const channels = channelInputText
-        .split(/[\n,]+/)
-        .map((c) => c.trim())
-        .filter((c) => c);
 
     // Reset data
     state.activeChannels = [];
@@ -243,7 +336,8 @@ async function fetchAllVideos() {
 
     try {
         // Find "Uploads" playlist ID for every channel input
-        for (const identifier of channels) {
+        for (const channelObj of activeChannels) {
+            const identifier = channelObj.value.trim();
             let queryUrl = identifier.startsWith("@")
                 ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&forHandle=${identifier}&key=${apiKey}`
                 : `https://www.googleapis.com/youtube/v3/channels?part=snippet,contentDetails&id=${identifier}&key=${apiKey}`;
@@ -255,6 +349,9 @@ async function fetchAllVideos() {
                 const channelData = data.items[0];
                 state.channelIcons[channelData.id] = channelData.snippet.thumbnails.default.url;
 
+                // Save resolved channel ID
+                channelObj.channelId = channelData.id;
+
                 state.activeChannels.push({
                     playlistId: channelData.contentDetails.relatedPlaylists.uploads,
                     channelId: channelData.id,
@@ -263,6 +360,7 @@ async function fetchAllVideos() {
                 });
             }
         }
+        saveChannels(state.channels);
 
         if (state.activeChannels.length === 0) throw new Error("No valid channels found.");
 
@@ -353,8 +451,75 @@ async function fetchNextBatch() {
     }
 }
 
+function renderChannels() {
+    if (!channelsListContainer) return;
+
+    let html = "";
+    
+    state.channels.forEach((channel, index) => {
+        html += `
+            <div class="channel-row">
+                <label class="channel-toggle">
+                    <input type="checkbox" class="channel-toggle-checkbox" data-index="${index}" ${channel.enabled ? "checked" : ""}>
+                    <span class="channel-toggle-ui"></span>
+                </label>
+                <span class="channel-text" title="${channel.value}">${channel.value}</span>
+                <div class="channel-actions">
+                    <button class="channel-action-btn btn-delete" data-index="${index}" title="Delete channel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    if (state.showAddRow) {
+        html += `
+            <div class="channel-row new-row">
+                <label class="channel-toggle disabled">
+                    <input type="checkbox" disabled>
+                    <span class="channel-toggle-ui"></span>
+                </label>
+                <input type="text" id="new-channel-input" class="channel-input" placeholder="@handle or ID" autocomplete="off">
+                <div class="channel-actions">
+                    <button class="channel-action-btn btn-check" id="confirm-new-channel" title="Add channel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                    <button class="channel-action-btn btn-cancel" id="cancel-new-channel" title="Cancel">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        html += `
+            <button class="add-channel-btn" id="add-channel-trigger" title="Add channel">
+                + Add Channel
+            </button>
+        `;
+    }
+
+    channelsListContainer.innerHTML = html;
+
+    const newChannelInput = document.getElementById("new-channel-input");
+    if (newChannelInput) {
+        newChannelInput.focus();
+    }
+}
+
 // 6. The Heart of the Pattern: State to UI Render Function
 function renderApp() {
+    // Render dynamic channel list
+    renderChannels();
+
     // Top-level Error display
     errorContainer.innerText = state.error || "";
 
@@ -370,6 +535,13 @@ function renderApp() {
 
     // Determine which videos to display based on the filter states
     const visibleVideos = state.videos.filter((video) => {
+        // Hide videos from channels that are not selected (enabled)
+        const videoChannelId = video.snippet.channelId;
+        const channelConfig = state.channels.find(
+            (c) => c.channelId === videoChannelId || c.value === videoChannelId
+        );
+        if (!channelConfig || !channelConfig.enabled) return false;
+
         const isWatched = !!state.watchedIds[video.id];
         if (state.filters.mode === "shorts" && !video.isShort) return false;
         if (state.filters.mode === "longs" && video.isShort) return false;

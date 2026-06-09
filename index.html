@@ -17,9 +17,11 @@
                 <label for="api-key">YouTube API Key</label>
                 <input type="password" id="api-key" placeholder="AIzaSy...">
             </div>
-            <div>
-                <label for="channel-list">Channels (IDs or @Handles, 1 per line)</label>
-                <textarea id="channel-list" placeholder="@mrbeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA"></textarea>
+            <div class="channels-section">
+                <span class="filter-label">Channels</span>
+                <div id="channels-list-container" class="channels-list-container">
+                    <!-- Channels will be rendered dynamically -->
+                </div>
             </div>
             <div class="show-filter">
                 <span class="filter-label">Show:</span>
