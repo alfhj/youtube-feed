@@ -529,59 +529,28 @@ button:disabled {
     outline: 1px solid var(--accent);
 }
 
-/* Small toggle styling */
-.channel-toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.channel-toggle input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.channel-toggle-ui {
+/* Small toggle styling (reusing pill-toggle classes) */
+.pill-toggle.is-small .pill-toggle-ui {
     width: 28px;
     height: 16px;
-    border-radius: 999px;
-    background-color: #2b2b2b;
-    border: 1px solid var(--border);
-    position: relative;
-    transition: background-color 0.2s, border-color 0.2s;
 }
 
-.channel-toggle-ui::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 1px;
+.pill-toggle.is-small .pill-toggle-ui::after {
     width: 10px;
     height: 10px;
-    border-radius: 50%;
-    background-color: #9a9a9a;
+    left: 2px;
     transform: translate(1px, -50%);
-    transition: transform 0.2s, background-color 0.2s;
 }
 
-.channel-toggle input:checked + .channel-toggle-ui {
-    background-color: var(--accent);
-    border-color: var(--border);
+.pill-toggle.is-small input:checked + .pill-toggle-ui::after {
+    transform: translate(13px, -50%);
 }
 
-.channel-toggle input:checked + .channel-toggle-ui::after {
-    transform: translate(12px, -50%);
-    background-color: #0b0b0b;
-}
-
-.channel-toggle.disabled {
+.pill-toggle.disabled {
     cursor: not-allowed;
 }
 
-.channel-toggle.disabled .channel-toggle-ui {
+.pill-toggle.disabled .pill-toggle-ui {
     background-color: #1a1a1a;
     opacity: 0.4;
 }

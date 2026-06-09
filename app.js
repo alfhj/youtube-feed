@@ -98,7 +98,7 @@ channelsListContainer.addEventListener("change", (e) => {
         const index = parseInt(checkbox.dataset.index);
         state.channels[index].enabled = checkbox.checked;
         saveChannels(state.channels);
-        renderApp();
+        renderVideos();
     }
 });
 
@@ -155,13 +155,13 @@ showModeButtons.forEach((button) => {
 hideWatchedCheckbox.addEventListener("change", (e) => {
     state.filters.hideWatched = e.target.checked;
     localStorage.setItem("ytHideWatched", state.filters.hideWatched);
-    renderApp();
+    renderVideos();
 });
 
 resetWatchedBtn.addEventListener("click", () => {
     state.watchedIds = {};
     localStorage.removeItem("ytWatchedVideos");
-    renderApp();
+    renderVideos();
 });
 
 // 4. State Mutators
@@ -169,7 +169,7 @@ function setFilterMode(mode) {
     state.filters.mode = mode;
     localStorage.setItem("ytShowMode", mode);
     updateFilterButtonsUI();
-    renderApp();
+    renderVideos();
 }
 
 function updateFilterButtonsUI() {
@@ -459,9 +459,9 @@ function renderChannels() {
     state.channels.forEach((channel, index) => {
         html += `
             <div class="channel-row">
-                <label class="channel-toggle">
+                <label class="pill-toggle is-small">
                     <input type="checkbox" class="channel-toggle-checkbox" data-index="${index}" ${channel.enabled ? "checked" : ""}>
-                    <span class="channel-toggle-ui"></span>
+                    <span class="pill-toggle-ui"></span>
                 </label>
                 <span class="channel-text" title="${channel.value}">${channel.value}</span>
                 <div class="channel-actions">
@@ -479,9 +479,9 @@ function renderChannels() {
     if (state.showAddRow) {
         html += `
             <div class="channel-row new-row">
-                <label class="channel-toggle disabled">
+                <label class="pill-toggle is-small disabled">
                     <input type="checkbox" disabled>
-                    <span class="channel-toggle-ui"></span>
+                    <span class="pill-toggle-ui"></span>
                 </label>
                 <input type="text" id="new-channel-input" class="channel-input" placeholder="@handle or ID" autocomplete="off">
                 <div class="channel-actions">
@@ -533,6 +533,10 @@ function renderApp() {
         fetchBtn.disabled = state.isFetching;
     }
 
+    renderVideos();
+}
+
+function renderVideos() {
     // Determine which videos to display based on the filter states
     const visibleVideos = state.videos.filter((video) => {
         // Hide videos from channels that are not selected (enabled)
