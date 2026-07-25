@@ -345,6 +345,8 @@ async function fetchAllVideos() {
             const res = await fetch(queryUrl);
             const data = await res.json();
 
+            if (data.error) throw new Error(data.error.message);
+
             if (data.items && data.items.length > 0) {
                 const channelData = data.items[0];
                 state.channelIcons[channelData.id] = channelData.snippet.thumbnails.default.url;
@@ -390,6 +392,8 @@ async function fetchNextBatch() {
             const plRes = await fetch(url);
             const plData = await plRes.json();
 
+            if (plData.error) throw new Error(plData.error.message);
+
             if (plData.items) {
                 plData.items.forEach((item) => videoIdsToFetch.push(item.snippet.resourceId.videoId));
             }
@@ -414,6 +418,7 @@ async function fetchNextBatch() {
                 `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,player&maxWidth=1000&maxHeight=1000&id=${batchIds}&key=${apiKey}`,
             );
             const statData = await statRes.json();
+            if (statData.error) throw new Error(statData.error.message);
             if (statData.items) newVideos.push(...statData.items);
         }
 
